@@ -1,0 +1,60 @@
+Built-in imagegen reference set
+================================
+
+Identity reference: /home/deck/Documents/MechSky/mech.png
+Style/scale reference: accepted down-facing 2x2 idle sheet
+Directional turnaround reference: first rejected 4x4 draft (rear design only)
+
+Shared production prompt
+------------------------
+
+Create exactly one square 2x2 sprite grid with four rooted idle frames of the
+same sleek humanoid mech. Preserve the canonical white ceramic armor, deep navy
+panels, graphite joints, narrow cyan visor or rear power light, twin swept head
+fins, broad angular shoulders, long athletic legs, small amber accents, and the
+clean high-detail anime-mecha rendering. Do not redesign, simplify, or make
+pixel art.
+
+Reading order is neutral, slight mechanical breathing compression, neutral
+return with a tiny attached cyan-light intensity change, and subtle release
+with attached antenna/armor secondary motion. Both feet and the pelvis stay
+rooted. No step, foot lift, attack, dash, recoil, lateral travel, detached FX,
+particles, or motion symbols.
+
+Use exactly four equal invisible cells. Keep one complete full-body mech
+centered in each cell at one camera distance and standing-equivalent scale.
+Occupy only the central 60-64 percent of cell height and at most 58 percent of
+cell width, keep the feet/contact line near 82 percent of cell height, and leave
+broad empty margins. Nothing may touch or cross a cell boundary.
+
+The complete canvas background is uniform flat solid #FF00FF. No gradient,
+texture, noise, floor, shadow, reflection, grid, separator, box, text, label,
+UI, watermark, signature, extra image, weapon, prop, scenery, or magenta detail
+on the mech.
+
+Direction-specific prompts
+--------------------------
+
+down: Face toward the viewer with front chest armor and cyan visor visible,
+using an orthographic-like 3/4 camera from slightly above.
+
+left: Use a true left-facing side silhouette. Head, visor wedge, chest, knees,
+and toes point left. Match the accepted down sheet's scale, feet line, lighting,
+and animation phases.
+
+right: Use a true right-facing side silhouette. Head, visor wedge, chest,
+knees, and toes point right. Match the accepted down and left sheets' scale,
+feet line, lighting, and animation phases.
+
+up: Face directly away. Show the rear head shell, back armor, cyan rear power
+light, shoulder backs, spine/waist mechanisms, rear legs, and heels. No face,
+front visor, or front chest plate may be visible. Match the accepted down
+sheet's scale, feet line, lighting, and animation phases.
+
+Accepted built-in imagegen outputs
+----------------------------------
+
+down: exec-b22bfca0-cce3-4ba0-945a-b76241c7eee4.png
+left: exec-5de0b1be-7504-4a95-9c5c-061fbc89c8f8.png
+right: exec-86ceeaa2-7607-4b20-9208-47c8798f556e.png
+up: exec-33ca7c1d-304d-470e-8c0c-7891461c08ed.png

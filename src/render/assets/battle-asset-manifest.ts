@@ -4,7 +4,7 @@ export const BATTLE_COMMON_BUNDLE = "battle-common";
 
 export const BATTLE_ASSET_ALIASES = {
   hangarFloor: "arena-hangar-floor",
-  playerMech: "player-mech-static",
+  playerMechIdle: "player-mech-idle-4dir",
 } as const;
 
 export const BATTLE_ASSET_MANIFEST = {
@@ -23,8 +23,8 @@ export const BATTLE_ASSET_MANIFEST = {
           },
         },
         {
-          alias: BATTLE_ASSET_ALIASES.playerMech,
-          src: "assets/characters/player/mech-static.png",
+          alias: BATTLE_ASSET_ALIASES.playerMechIdle,
+          src: "assets/characters/player/mech-idle-4dir.png",
           data: {
             autoGenerateMipmaps: true,
             scaleMode: "linear",

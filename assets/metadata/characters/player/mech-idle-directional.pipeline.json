@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "generator": "built-in imagegen",
+  "processor": "imagegen remove_chroma_key + generate2dsprite",
+  "runtimeAsset": "public/assets/characters/player/mech-idle-4dir.png",
+  "rows": 4,
+  "cols": 4,
+  "cellSize": 256,
+  "sheetWidth": 1024,
+  "sheetHeight": 1024,
+  "directions": ["down", "left", "right", "up"],
+  "framesPerDirection": 4,
+  "frameDurationMs": 200,
+  "feetAnchor": [128, 228],
+  "sourceSheets": {
+    "down": "assets/source/characters/player/mech-idle-directional/down/raw-sheet.png",
+    "left": "assets/source/characters/player/mech-idle-directional/left/raw-sheet.png",
+    "right": "assets/source/characters/player/mech-idle-directional/right/raw-sheet.png",
+    "up": "assets/source/characters/player/mech-idle-directional/up/raw-sheet.png"
+  },
+  "processorMetadata": {
+    "down": "assets/source/characters/player/mech-idle-directional/down/processed/pipeline-meta.json",
+    "left": "assets/source/characters/player/mech-idle-directional/left/processed/pipeline-meta.json",
+    "right": "assets/source/characters/player/mech-idle-directional/right/processed/pipeline-meta.json",
+    "up": "assets/source/characters/player/mech-idle-directional/up/processed/pipeline-meta.json"
+  },
+  "qc": {
+    "emptyFrames": [],
+    "sourceEdgeTouchFrames": [],
+    "outputEdgeTouchFrames": [],
+    "pasteClampedFrames": [],
+    "feetBottomRows": [228],
+    "pinkFringePixels": 0,
+    "meanSubjectHeights": {
+      "down": 195.75,
+      "left": 197.0,
+      "right": 195.0,
+      "up": 196.0
+    },
+    "maximumWithinDirectionBodyScaleCv": 0.010751,
+    "maximumNormalizedAnchorYStd": 0.022618
+  }
+}

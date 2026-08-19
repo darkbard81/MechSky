@@ -34,7 +34,7 @@ describe("battle asset manifest", () => {
     expect(published).toEqual(BATTLE_ASSET_MANIFEST);
   });
 
-  it("registers required 256 by 256 runtime textures", async () => {
+  it("registers the arena tile and 256-cell directional player sheet", async () => {
     const battleBundle = BATTLE_ASSET_MANIFEST.bundles.find(
       ({ name }) => name === BATTLE_COMMON_BUNDLE,
     );
@@ -42,38 +42,98 @@ describe("battle asset manifest", () => {
     expect(battleBundle).toBeDefined();
     expect(battleBundle?.assets.map(({ alias }) => alias)).toEqual([
       BATTLE_ASSET_ALIASES.hangarFloor,
-      BATTLE_ASSET_ALIASES.playerMech,
+      BATTLE_ASSET_ALIASES.playerMechIdle,
     ]);
 
-    for (const asset of battleBundle?.assets ?? []) {
-      const file = resolve("public", asset.src);
-      await expect(readPngSize(file)).resolves.toMatchObject({
-        width: 256,
-        height: 256,
-      });
-    }
+    const floor = battleBundle?.assets.find(
+      ({ alias }) => alias === BATTLE_ASSET_ALIASES.hangarFloor,
+    );
+    const player = battleBundle?.assets.find(
+      ({ alias }) => alias === BATTLE_ASSET_ALIASES.playerMechIdle,
+    );
+
+    expect(floor).toBeDefined();
+    expect(player).toBeDefined();
+    await expect(readPngSize(resolve("public", floor?.src ?? ""))).resolves.toMatchObject(
+      { width: 256, height: 256 },
+    );
+    await expect(readPngSize(resolve("public", player?.src ?? ""))).resolves.toMatchObject(
+      { width: 1024, height: 1024, colorType: 6 },
+    );
   });
 
-  it("keeps the normalized player frame transparent and inside its output cell", async () => {
+  it("keeps all directional idle frames transparent, aligned, and inside their cells", async () => {
     const playerPath = resolve(
-      "public/assets/characters/player/mech-static.png",
+      "public/assets/characters/player/mech-idle-4dir.png",
     );
     const metadata = JSON.parse(
       await readFile(
-        resolve("assets/metadata/characters/player/mech-static.pipeline.json"),
+        resolve(
+          "assets/metadata/characters/player/mech-idle-directional.pipeline.json",
+        ),
         "utf8",
       ),
     ) as {
-      cell_size: number;
-      empty_frames: unknown[];
-      output_edge_touch_frames: unknown[];
-      paste_clamped_frames: unknown[];
+      rows: number;
+      cols: number;
+      cellSize: number;
+      directions: string[];
+      framesPerDirection: number;
+      feetAnchor: number[];
+      processorMetadata: Record<string, string>;
+      qc: {
+        emptyFrames: unknown[];
+        outputEdgeTouchFrames: unknown[];
+        pasteClampedFrames: unknown[];
+        feetBottomRows: number[];
+        pinkFringePixels: number;
+      };
     };
 
-    await expect(readPngSize(playerPath)).resolves.toMatchObject({ colorType: 6 });
-    expect(metadata.cell_size).toBe(256);
-    expect(metadata.empty_frames).toEqual([]);
-    expect(metadata.output_edge_touch_frames).toEqual([]);
-    expect(metadata.paste_clamped_frames).toEqual([]);
+    await expect(readPngSize(playerPath)).resolves.toMatchObject({
+      width: 1024,
+      height: 1024,
+      colorType: 6,
+    });
+    expect(metadata).toMatchObject({
+      rows: 4,
+      cols: 4,
+      cellSize: 256,
+      directions: ["down", "left", "right", "up"],
+      framesPerDirection: 4,
+      feetAnchor: [128, 228],
+    });
+    expect(metadata.qc.emptyFrames).toEqual([]);
+    expect(metadata.qc.outputEdgeTouchFrames).toEqual([]);
+    expect(metadata.qc.pasteClampedFrames).toEqual([]);
+    expect(metadata.qc.feetBottomRows).toEqual([228]);
+    expect(metadata.qc.pinkFringePixels).toBe(0);
+
+    for (const direction of metadata.directions) {
+      const processorPath = metadata.processorMetadata[direction];
+      expect(processorPath).toBeDefined();
+      const processor = JSON.parse(
+        await readFile(resolve(processorPath ?? ""), "utf8"),
+      ) as {
+        rows: number;
+        cols: number;
+        cell_size: number;
+        empty_frames: unknown[];
+        source_edge_touch_frames: unknown[];
+        output_edge_touch_frames: unknown[];
+        paste_clamped_frames: unknown[];
+        frames: Array<{ aligned_bbox: number[] }>;
+      };
+
+      expect(processor).toMatchObject({ rows: 2, cols: 2, cell_size: 256 });
+      expect(processor.empty_frames).toEqual([]);
+      expect(processor.source_edge_touch_frames).toEqual([]);
+      expect(processor.output_edge_touch_frames).toEqual([]);
+      expect(processor.paste_clamped_frames).toEqual([]);
+      expect(processor.frames).toHaveLength(4);
+      expect(processor.frames.map(({ aligned_bbox }) => aligned_bbox[3])).toEqual([
+        228, 228, 228, 228,
+      ]);
+    }
   });
 });

@@ -7,7 +7,7 @@ import {
 
 export interface BattleAssets {
   readonly hangarFloor: Texture;
-  readonly playerMech: Texture;
+  readonly playerMechIdle: Texture;
 }
 
 export type AssetLoadProgress = (progress: number, detail: string) => void;
@@ -86,7 +86,10 @@ export async function loadBattleAssets(
 
     return {
       hangarFloor: requireTexture(resources, BATTLE_ASSET_ALIASES.hangarFloor),
-      playerMech: requireTexture(resources, BATTLE_ASSET_ALIASES.playerMech),
+      playerMechIdle: requireTexture(
+        resources,
+        BATTLE_ASSET_ALIASES.playerMechIdle,
+      ),
     };
   } catch (error: unknown) {
     const reason = error instanceof Error ? error.message : String(error);

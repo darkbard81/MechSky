@@ -14,8 +14,8 @@
           }
         },
         {
-          "alias": "player-mech-static",
-          "src": "assets/characters/player/mech-static.png",
+          "alias": "player-mech-idle-4dir",
+          "src": "assets/characters/player/mech-idle-4dir.png",
           "data": {
             "autoGenerateMipmaps": true,
             "scaleMode": "linear"

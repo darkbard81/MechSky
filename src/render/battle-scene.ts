@@ -1,7 +1,21 @@
-import { Container, Graphics, Sprite, TilingSprite } from "pixi.js";
+import {
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Texture,
+  TilingSprite,
+} from "pixi.js";
 import type { FighterSnapshot, SimulationSnapshot } from "../sim/world/world";
 import type { BattleAssets } from "./assets/battle-assets";
 import { actorGroundSortKey } from "./actors/ground-sort";
+import {
+  DIRECTIONAL_IDLE_DIRECTIONS,
+  DIRECTIONAL_IDLE_FRAME_COUNT,
+  DIRECTIONAL_IDLE_SHEET_SIZE,
+  directionalIdleFrameAddress,
+  resolveDirectionalIdleFrameAddress,
+} from "./actors/directional-idle";
 import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
 import { SmoothCamera } from "./camera/smooth-camera";
 import type { StageLayers } from "./stage-layers";
@@ -14,6 +28,33 @@ const AFTERIMAGE_INTERVAL_SECONDS = 0.035;
 interface Afterimage {
   readonly sprite: Sprite;
   ageSeconds: number;
+}
+
+function createDirectionalIdleTextures(sheet: Texture): readonly Texture[] {
+  if (
+    sheet.width !== DIRECTIONAL_IDLE_SHEET_SIZE ||
+    sheet.height !== DIRECTIONAL_IDLE_SHEET_SIZE
+  ) {
+    throw new RangeError(
+      `Player directional idle sheet must be ${DIRECTIONAL_IDLE_SHEET_SIZE} by ${DIRECTIONAL_IDLE_SHEET_SIZE} pixels.`,
+    );
+  }
+
+  return Array.from(
+    { length: DIRECTIONAL_IDLE_DIRECTIONS.length * DIRECTIONAL_IDLE_FRAME_COUNT },
+    (_, index) => {
+      const row = Math.floor(index / DIRECTIONAL_IDLE_FRAME_COUNT);
+      const column = index % DIRECTIONAL_IDLE_FRAME_COUNT;
+      const direction = DIRECTIONAL_IDLE_DIRECTIONS[row] ?? "front";
+      const frame = directionalIdleFrameAddress(direction, column);
+
+      return new Texture({
+        frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
+        label: `Player idle ${direction} ${column + 1}`,
+        source: sheet.source,
+      });
+    },
+  );
 }
 
 function createUnitPanel(color: number, alpha: number): Graphics {
@@ -97,6 +138,7 @@ export class BattleScene {
   private readonly playerShadow = createGroundShadow();
   private readonly playerRoot = new Container({ label: "Player fighter view" });
   private readonly player: Sprite;
+  private readonly playerIdleTextures: readonly Texture[];
   private readonly afterimages: Afterimage[];
   private readonly boostTrail = createBoostTrail();
   private readonly targetGround = createTargetGroundMarker();
@@ -109,7 +151,6 @@ export class BattleScene {
   private afterimageCursor = 0;
   private afterimageAccumulator = 0;
   private lastDashSequence = 0;
-  private horizontalFacing = 1;
 
   constructor(
     private readonly layers: StageLayers,
@@ -119,6 +160,16 @@ export class BattleScene {
     this.arenaCenter = { ...initialSnapshot.arena.center };
     this.arenaRadius = initialSnapshot.arena.radius;
     this.maximumCameraLookAhead = initialSnapshot.player.dashSpeed * 0.075;
+    this.playerIdleTextures = createDirectionalIdleTextures(assets.playerMechIdle);
+    const initialFrame = resolveDirectionalIdleFrameAddress(
+      initialSnapshot.player.facing,
+      initialSnapshot.tick,
+      initialSnapshot.player.state,
+    );
+    const initialTexture = this.requirePlayerIdleTexture(
+      initialFrame.row,
+      initialFrame.column,
+    );
 
     this.floor = new TilingSprite({
       texture: assets.hangarFloor,
@@ -140,7 +191,7 @@ export class BattleScene {
     this.arenaBoundary.label = "Arena movement boundary";
 
     this.player = new Sprite({
-      texture: assets.playerMech,
+      texture: initialTexture,
       anchor: { x: 0.5, y: MECH_FEET_ANCHOR_Y },
     });
     this.player.label = "Player mech";
@@ -148,7 +199,7 @@ export class BattleScene {
 
     this.afterimages = Array.from({ length: AFTERIMAGE_COUNT }, (_, index) => {
       const sprite = new Sprite({
-        texture: assets.playerMech,
+        texture: initialTexture,
         anchor: { x: 0.5, y: MECH_FEET_ANCHOR_Y },
       });
       sprite.label = `Dash afterimage ${index + 1}`;
@@ -186,10 +237,6 @@ export class BattleScene {
     const { position, velocity } = player.body;
     const safeDelta = Math.min(Math.max(deltaSeconds, 0), 0.05);
 
-    if (Math.abs(player.facing.x) > 0.05) {
-      this.horizontalFacing = Math.sign(player.facing.x);
-    }
-
     const speedRatio = Math.min(
       Math.hypot(velocity.x, velocity.y) / player.maximumSpeed,
       1.5,
@@ -197,10 +244,19 @@ export class BattleScene {
     const dashStretch = player.state === "dashing" ? 1.06 : 1;
     this.playerRoot.position.set(position.x, position.y);
     this.playerRoot.zIndex = actorGroundSortKey(player);
+    const idleFrame = resolveDirectionalIdleFrameAddress(
+      player.facing,
+      snapshot.tick,
+      player.state,
+    );
+    this.player.texture = this.requirePlayerIdleTexture(
+      idleFrame.row,
+      idleFrame.column,
+    );
     this.player.position.y = -position.elevation;
     this.player.rotation = (velocity.x / player.dashSpeed) * 0.07;
     this.player.scale.set(
-      this.horizontalFacing * dashStretch,
+      dashStretch,
       1 - Math.min(speedRatio, 1) * 0.025,
     );
 
@@ -266,11 +322,22 @@ export class BattleScene {
     afterimage.ageSeconds = 0;
     afterimage.sprite.visible = true;
     afterimage.sprite.alpha = 0.34;
+    afterimage.sprite.texture = this.player.texture;
     afterimage.sprite.position.set(position.x, position.y - position.elevation);
     afterimage.sprite.rotation = (velocity.x / player.dashSpeed) * 0.07;
-    afterimage.sprite.scale.set(this.horizontalFacing * 1.04, 0.98);
+    afterimage.sprite.scale.set(1.04, 0.98);
     afterimage.sprite.zIndex = position.y - 0.25;
     this.afterimageCursor = (this.afterimageCursor + 1) % this.afterimages.length;
+  }
+
+  private requirePlayerIdleTexture(row: number, column: number): Texture {
+    const texture =
+      this.playerIdleTextures[row * DIRECTIONAL_IDLE_FRAME_COUNT + column];
+    if (texture === undefined) {
+      throw new RangeError(`Player idle texture is missing at row ${row}, column ${column}.`);
+    }
+
+    return texture;
   }
 
   private presentTarget(snapshot: SimulationSnapshot): void {

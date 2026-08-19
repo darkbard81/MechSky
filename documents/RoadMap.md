@@ -124,11 +124,18 @@
 원본 보관 경로와 runtime export 경로를 분리한다.
 
 ```text
-assets/source/characters/player/mech.png
+mech.png
+
+assets/source/characters/player/mech-idle-directional/
+├─ down/
+├─ left/
+├─ right/
+├─ up/
+└─ assembled/
 
 public/assets/characters/player/
 ├─ mech-static.png
-├─ idle.png
+├─ mech-idle-4dir.png
 ├─ move.png
 ├─ ground-combo.png
 ├─ launcher.png
@@ -175,7 +182,7 @@ projectile, portrait 등 프로젝트에 새로 만드는 모든 bitmap에 적�
 | Asset | Frame 계획 | Runtime sheet | 비고 |
 |---|---:|---:|---|
 | Static/neutral | 1 | 256×256 | 첫 화면과 fallback |
-| Idle | 4, 2×2 | 512×512 | 미세한 core/shoulder 움직임 |
+| Directional idle | 방향별 4, 각 2×2 | 4×4, 1024×1024 | down/left/right/up, 200 ms |
 | Move | 6, 2×3 | 768×512 | 지면 anchor 고정 |
 | Ground combo | 8, 2×4 | 1024×512 | 1타와 2타가 이어지는 한 sequence |
 | Launcher | 6, 2×3 | 768×512 | 상승 방향 동작, body-only |
@@ -185,10 +192,11 @@ projectile, portrait 등 프로젝트에 새로 만드는 모든 bitmap에 적�
 | Knockdown | 6, 2×3 | 768×512 | 낙하와 지면 충돌 |
 | Slash/impact FX | 각 4, 2×2 | 각 512×512 | body sheet와 분리 |
 
-원본 이미지가 한 장뿐이므로 첫 가시 milestone에서는 static sprite의 translation,
-tilt, scale 반응으로 이동과 피격을 확인한다. 최종 수직 슬라이스 승인 전에는
-`$imagegen`에서 `mech.png`를 identity reference로 사용해 위 action sheet를 제작하고
-교체한다.
+M1에서는 `$imagegen`에서 `mech.png`를 identity reference로 사용해 정면·좌·우·후면
+idle 원본을 방향별 2×2로 생성하고, QC 후 4×4 runtime sheet로 조립해 static sprite를
+교체했다. 이동·대시 중에는 방향별 neutral frame을, 정지 중에는 simulation tick 기반
+4-frame loop를 사용한다. 이후 action sheet도 같은 identity와 256×256 cell 계약을
+이어간다.
 
 Action sheet 제작 시 다음을 지킨다.
 
@@ -196,7 +204,7 @@ Action sheet 제작 시 다음을 지킨다.
 - body sheet에 큰 slash arc, spark, projectile, dust를 합치지 않는다.
 - grounded sheet는 `align=feet`, `scale_strategy=preserve`, `component_mode=largest`를
   기본으로 한다.
-- accepted idle sheet로 공통 character scale profile을 만든다.
+- accepted front idle sheet로 공통 character scale profile을 만든다.
 - frame edge touch, paste clamp, anchor drift가 있으면 runtime에서 보정하지 않고
   다시 처리하거나 원본 sheet를 재생성한다.
 - Pixi `AnimatedSprite`의 독립 시간으로 전투 동작을 진행하지 않는다. simulation의
