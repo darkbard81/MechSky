@@ -558,7 +558,9 @@ M6의 replay와 dev scenario는 이 데이터 모듈을 참조하고, 직렬화�
 `BattleRecipe + seed + InputFrame[]`뿐이다.
 
 아키텍처 문서 §9의 `weapon/*.json` 예시는 파일 형식이 아니라 "무기마다 클래스를
-만들지 않는다"는 원칙을 뜻한다. content 파일 형식은 이 절이 우선한다.
+만들지 않는다"는 원칙을 뜻한다. 이 결정은
+[`아키텍처 부칙 A1`](./baldr_sky_architecture.md#a1-content-파일-형식은-typescript-데이터-모듈-2026-08-20-m1-종료-시점)에
+기록되어 있다.
 
 ## 9. 사용자 검토 게이트
 

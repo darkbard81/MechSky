@@ -1,3 +1,7 @@
+> 이 문서는 MechSky의 아키텍처 헌법이다. 본문은 임의로 바꾸지 않는다.
+> 이후 milestone에서 확정된 변경은 문서 끝 [부칙](#부칙-개정-기록)에 기록하며,
+> 본문과 부칙이 충돌하면 부칙이 우선한다.
+
 좋아. 지금까지의 조건을 전부 고정하면, 나는 **“2.5D 전투 시뮬레이터 + PixiJS 표현 계층 + DOM 애플리케이션 UI + Electron 셸”**로 설계하겠다.
 
 핵심은 **PixiJS에 게임 로직을 넣지 않는 것**이야. Baldr Sky의 전투를 3D 물리로 흉내 내지도 않고, 반대로 단순 스프라이트 게임처럼 만들지도 않는다.
@@ -1529,3 +1533,59 @@ Vite + Browser
 이렇게 제한하면 `Node/TypeScript + PixiJS`가 약점이 아니라 오히려 장점이 된다. 전투 전체를 데이터와 코드로 통제할 수 있고, 가장 중요하게는 **SSH → Vite → Chromium → replay → screenshot → 수정** 루프를 그대로 유지할 수 있다.
 
 이 아키텍처라면 다음 구현 단계에서는 바로 **`Simulation Core + Fighter + Elevation + AttackTimeline`의 실제 TypeScript 인터페이스와 파일 골격**부터 잡는 게 맞다.
+
+---
+
+# 부칙: 개정 기록
+
+본문 작성 이후 milestone에서 확정된 결정이다. 본문과 충돌하면 여기가 우선한다.
+
+## A1. Content 파일 형식은 TypeScript 데이터 모듈 (2026-08-20, M1 종료 시점)
+
+§9의 `weapon/machine-gun.json`과 §27의 `content/` 예시는 **파일 형식이 아니라
+"무기마다 클래스를 만들지 않는다"는 원칙**을 뜻한다.
+
+실제 content는 JSON이 아니라 로직 없는 TypeScript 데이터 모듈로 고정한다.
+
+```ts
+export const MECH_GROUND_COMBO = {
+  id: "mech-ground-combo",
+  startup: 6,
+  active: 4,
+  recovery: 13,
+} as const satisfies AttackDefinition;
+```
+
+- 컴파일 타임에 `AttackDefinition` 계약을 검증하고 런타임 loader/parse 계층을 두지 않는다.
+- `src/content`에는 함수, 분기, 상태를 넣지 않는다. 이 제약이 §9의 데이터 주도 원칙을 유지한다.
+- 직렬화가 필요한 것은 replay의 `BattleRecipe + seed + InputFrame[]`뿐이다.
+
+근거와 파일 목록은 로드맵 §8에 있다.
+
+## A2. 장치 입력 계층은 `src/input/` (2026-08-20, M1)
+
+§27 트리에는 `sim/input/`만 있지만, 두 계층이 필요하다.
+
+```text
+src/sim/input/     CommandIntent 타입 정의. 장치를 모른다.
+src/input/         keyboard/gamepad → CommandIntent 어댑터. window/navigator를 쓴다.
+```
+
+§27의 lint 경계(`src/sim`에서 `window` 금지)를 지키려면 장치 코드가 `src/sim` 밖에
+있어야 한다. §12의 "player와 AI가 같은 Combat API를 사용한다"는 규칙은 그대로다.
+양쪽 모두 `CommandIntent`만 생성한다.
+
+## A3. Stage layer에 화면 고정 debug layer 추가 (2026-08-20, M0)
+
+§17 목록에 더해 `World` container와 `ScreenDebug` layer를 둔다.
+
+```text
+Background
+World                  ← camera transform이 걸리는 컨테이너
+├─ ArenaGround / GroundDecals / Shadows / Actors / Projectiles / Effects / Foreground / WorldDebug
+ScreenDebug            ← camera transform이 걸리지 않는 화면 고정 overlay
+```
+
+`WorldDebug`는 hitbox처럼 월드 좌표를 따라가야 하는 overlay, `ScreenDebug`는 FPS나
+state 표시처럼 화면에 고정되어야 하는 overlay용이다. §17의 "Actors만 Y-sort" 규칙은
+그대로이며, `sortableChildren`은 `Actors`에만 켠다.

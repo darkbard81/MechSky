@@ -8,9 +8,10 @@ Electron은 OS 셸과 제한된 IPC만 담당한다.
 
 작업 전에 이 순서로 읽는다. 충돌하면 위쪽이 이긴다.
 
-1. [`documents/baldr_sky_architecture.md`](documents/baldr_sky_architecture.md) — 아키텍처 헌법. 임의로 바꾸지 않는다.
-   단, 로드맵이 명시적으로 supersede한다고 적은 항목은 로드맵을 따른다
-   (예: content 파일 형식은 로드맵 §8이 우선).
+1. [`documents/baldr_sky_architecture.md`](documents/baldr_sky_architecture.md) — 아키텍처 헌법.
+   본문은 임의로 바꾸지 않는다. 확정된 변경은 문서 끝 **부칙(개정 기록)**에 한 줄씩 쌓고,
+   본문과 부칙이 충돌하면 부칙이 우선한다. 새 결정으로 본문이 어긋나면 본문을 고치지 말고
+   부칙 항목을 추가한다.
 2. [`documents/RoadMap.md`](documents/RoadMap.md) — 수직 슬라이스 실행 계획, milestone 정의, 완료 조건, 증거 목록.
 3. [`assets/README.md`](assets/README.md) — asset pipeline 재현 명령과 QC 계약.
 4. [`README.md`](README.md) — 개발환경 사용법.
