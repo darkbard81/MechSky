@@ -126,15 +126,16 @@
 ```text
 mech.png
 
-assets/source/characters/player/mech-idle-directional/
-├─ down/
-├─ left/
-├─ right/
-├─ up/
-└─ assembled/
+assets/source/characters/player/
+├─ mech-static/
+└─ mech-idle-directional/
+   ├─ down/
+   ├─ left/
+   ├─ right/
+   ├─ up/
+   └─ assembled/
 
 public/assets/characters/player/
-├─ mech-static.png
 ├─ mech-idle-4dir.png
 ├─ move.png
 ├─ ground-combo.png
@@ -152,7 +153,8 @@ public/assets/characters/player/
 - 모든 runtime frame 단위는 정확히 `256×256 px`이다.
 - 다중 frame sheet는 256×256 cell을 조합한다.
 - 2×2 sheet는 512×512, 2×3 sheet는 768×512, 2×4 sheet는 1024×512다.
-- 기준 origin은 `(128, 224)` 부근의 bottom/feet anchor로 시작하고 실제 QC 결과로 확정한다.
+- 기준 origin은 bottom/feet anchor이고, M1 idle QC 결과 `(128, 228)`로 확정했다.
+  이후 모든 지상 action sheet는 같은 anchor를 재사용한다.
 - 지상 동작은 공통 feet anchor와 scale profile을 사용한다.
 - 공중 동작은 body scale은 유지하되 feet alignment를 강제하지 않는다.
 - texture filtering, mipmap, 해상도 정책은 모든 character sheet에서 동일하게 유지한다.
@@ -181,7 +183,7 @@ projectile, portrait 등 프로젝트에 새로 만드는 모든 bitmap에 적�
 
 | Asset | Frame 계획 | Runtime sheet | 비고 |
 |---|---:|---:|---|
-| Static/neutral | 1 | 256×256 | 첫 화면과 fallback |
+| Static/neutral | 1 | 256×256 | M0 첫 화면. M1에서 directional idle이 대체, 원본만 보관 |
 | Directional idle | 방향별 4, 각 2×2 | 4×4, 1024×1024 | down/left/right/up, 200 ms |
 | Move | 6, 2×3 | 768×512 | 지면 anchor 고정 |
 | Ground combo | 8, 2×4 | 1024×512 | 1타와 2타가 이어지는 한 sequence |
@@ -202,9 +204,12 @@ Action sheet 제작 시 다음을 지킨다.
 
 - action별 multi-row grid를 따로 만들고 QC 후 runtime atlas로 조립한다.
 - body sheet에 큰 slash arc, spark, projectile, dust를 합치지 않는다.
-- grounded sheet는 `align=feet`, `scale_strategy=preserve`, `component_mode=largest`를
-  기본으로 한다.
-- accepted front idle sheet로 공통 character scale profile을 만든다.
+- grounded sheet는 `align=feet`, `shared_scale`, `scale_strategy=fit`,
+  `component_mode=largest`, `fit_scale=0.78`을 기본으로 한다. M1 idle QC에서
+  `preserve`는 방향별 실루엣 면적 차이 때문에 body scale이 흔들려서 폐기했다.
+- accepted front idle sheet가 공통 character scale profile
+  (`assets/source/characters/player/mech-idle-directional/mech-idle-scale-profile.json`)을
+  만들고, 이후 sheet는 이 profile을 재사용한다.
 - frame edge touch, paste clamp, anchor drift가 있으면 runtime에서 보정하지 않고
   다시 처리하거나 원본 sheet를 재생성한다.
 - Pixi `AnimatedSprite`의 독립 시간으로 전투 동작을 진행하지 않는다. simulation의
@@ -312,6 +317,9 @@ outline을 사용한다.
 - [`640 units/s dash 잔상 frame`](./evidence/m1/dash-afterimage.png)
 - `WASD`, 방향키, NumPad 8방향, 왼쪽 스틱을 동일 `MoveIntent`로 통합
 - 60/120/144 Hz에서 동일한 600번째 snapshot 및 M1 자동 테스트 통과
+- [`4방향 idle runtime clip`](./evidence/sprites/mech-idle/directional-idle-runtime.mp4)
+- [`방향별 runtime contact sheet`](./evidence/sprites/mech-idle/runtime-directions-contact-sheet.png)
+- [`idle sprite 검증 기록`](./evidence/sprites/mech-idle/README.md)
 
 ### M2. 지상 2타와 타격 반응
 
@@ -502,9 +510,10 @@ src/
 │  │  ├─ cancel-system.ts
 │  │  ├─ combo-system.ts
 │  │  └─ hitstop-system.ts
-│  ├─ input/
+│  ├─ input/          # CommandIntent 타입만
 │  ├─ ai/
 │  └─ replay/
+├─ input/             # keyboard/gamepad 장치 → CommandIntent 어댑터
 ├─ content/
 │  ├─ actors/
 │  ├─ attacks/
@@ -530,17 +539,26 @@ tests/
 └─ browser/
 ```
 
-Content는 TypeScript system 코드와 분리한다.
+Content는 system 코드와 분리하되, 파일 형식은 JSON이 아니라 **로직 없는 TypeScript
+데이터 모듈**로 고정한다. `as const satisfies AttackDefinition` 형태로 선언해
+컴파일 타임에 계약을 검증하고, 런타임 loader와 parse 계층을 두지 않는다.
+`src/content`에는 함수, 분기, 상태를 넣지 않는다.
 
 ```text
-src/content/attacks/mech-ground-combo.json
-src/content/attacks/mech-launcher.json
-src/content/attacks/mech-air-combo.json
-src/content/attacks/mech-finisher.json
-src/content/actors/player-mech.json
-src/content/actors/enemy-mech.json
-src/content/arenas/hangar-test.json
+src/content/attacks/mech-ground-combo.ts
+src/content/attacks/mech-launcher.ts
+src/content/attacks/mech-air-combo.ts
+src/content/attacks/mech-finisher.ts
+src/content/actors/player-mech.ts
+src/content/actors/enemy-mech.ts
+src/content/arenas/hangar-test.ts
 ```
+
+M6의 replay와 dev scenario는 이 데이터 모듈을 참조하고, 직렬화가 필요한 것은
+`BattleRecipe + seed + InputFrame[]`뿐이다.
+
+아키텍처 문서 §9의 `weapon/*.json` 예시는 파일 형식이 아니라 "무기마다 클래스를
+만들지 않는다"는 원칙을 뜻한다. content 파일 형식은 이 절이 우선한다.
 
 ## 9. 사용자 검토 게이트
 

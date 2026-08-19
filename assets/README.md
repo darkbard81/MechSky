@@ -37,8 +37,10 @@ python /home/deck/.codex/skills/generate2dsprite/scripts/generate2dsprite.py pro
   --allow-source-edge-touch
 ```
 
-Copy `sheet-transparent.png` to
-`public/assets/characters/player/mech-static.png` after visual QC.
+The accepted output is kept at
+`source/characters/player/mech-static/mech-static.png`. M0 shipped it as the
+runtime frame; M1 replaced it with the four-direction idle sheet, so it is no
+longer loaded by any bundle and no longer lives under `public/assets/`.
 
 ## Player four-direction idle sheet
 

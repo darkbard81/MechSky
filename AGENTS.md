@@ -9,6 +9,8 @@ Electron은 OS 셸과 제한된 IPC만 담당한다.
 작업 전에 이 순서로 읽는다. 충돌하면 위쪽이 이긴다.
 
 1. [`documents/baldr_sky_architecture.md`](documents/baldr_sky_architecture.md) — 아키텍처 헌법. 임의로 바꾸지 않는다.
+   단, 로드맵이 명시적으로 supersede한다고 적은 항목은 로드맵을 따른다
+   (예: content 파일 형식은 로드맵 §8이 우선).
 2. [`documents/RoadMap.md`](documents/RoadMap.md) — 수직 슬라이스 실행 계획, milestone 정의, 완료 조건, 증거 목록.
 3. [`assets/README.md`](assets/README.md) — asset pipeline 재현 명령과 QC 계약.
 4. [`README.md`](README.md) — 개발환경 사용법.
@@ -39,7 +41,8 @@ npm run demo:m1        # CDP 기반 M1 입력 재현 시나리오 (증거 캡처
 6. movement collision(원 vs 경계/캐릭터)과 combat collision(hitbox vs hurtbox)을 절대 합치지 않는다.
 7. player와 AI 모두 `CommandIntent`만 사용한다. AI가 `enemy.attack()`처럼 직접 호출하지 않는다.
 8. hit-stop은 world pause가 아니라 actor별 action clock 정지로 구현한다.
-9. 모든 randomness는 seeded PRNG를 거친다. `Math.random()`, `Date.now()`는 simulation에서 금지다.
+9. 모든 randomness는 seeded PRNG를 거친다. `src/sim`에서 `Math.random`, `Date.now`,
+   `performance`, `Date`는 ESLint가 차단한다. simulation은 tick으로만 시간을 센다.
 10. asset은 `core`, `battle-common`, `vertical-slice` bundle 단위로 로드하고 첫 표시 전에 GPU prewarm한다.
 11. Pixi `AnimatedSprite`의 독립 시간으로 전투 동작을 진행하지 않는다. simulation의 tick/`actionFrame`이 표시할 texture frame을 결정한다.
 12. 범용 physics를 만들지 않는다. 경사면, ragdoll, joint, rigid body, CCD 엔진은 범위 밖이다.
@@ -55,7 +58,7 @@ src/sim/        renderer/플랫폼 독립 simulation
   input/        CommandIntent 타입 (장치 코드 아님)
   math/         vector2.ts
 src/input/      keyboard/gamepad 장치 → CommandIntent 어댑터
-src/content/    데이터 전용 전투 콘텐츠 (arena/actor/attack 정의)
+src/content/    로직 없는 TS 데이터 모듈 (arena/actor/attack 정의)
 src/render/     PixiJS 표현 계층 (pixi-renderer, battle-scene, actors/, camera/, assets/)
 src/ui/         Vanilla DOM UI (hud/)
 src/platform/   browser/electron 어댑터
@@ -82,6 +85,8 @@ documents/      아키텍처, 로드맵, milestone 증거
 - `any` 금지. 외부 경계는 `unknown`으로 받고 좁힌다 (`catch (error: unknown)`).
 - 상수는 모듈 상단 `SCREAMING_SNAKE`, 큰 숫자는 `1_050`처럼 구분자를 쓴다.
 - 잘못된 데이터는 조용히 보정하지 말고 구체적 메시지와 함께 `RangeError`/`Error`를 던진다.
+- 전투 콘텐츠는 `as const satisfies AttackDefinition` 형태의 데이터 모듈로 쓴다.
+  `src/content`에 함수, 분기, 상태를 넣지 않는다. JSON loader나 parse 계층도 두지 않는다.
 - 사용자에게 보이는 문자열은 한국어, 식별자·주석·Pixi `label`은 영어다.
 - 주석은 드물게, "왜"만 적는다. 코드가 설명하는 내용을 반복하지 않는다.
 - hot path에서 불필요한 할당, `filter`/`map` 임시 배열, closure 생성을 피한다.
@@ -104,8 +109,9 @@ documents/      아키텍처, 로드맵, milestone 증거
   2×3=768×512, 2×4=1024×512, 4×4=1024×1024.
 - feet/bottom anchor는 QC로 확정된 **y=228** (`MECH_FEET_ANCHOR_Y = 228 / 256`).
 - `mech.png`(1254×1254)는 플레이어 identity 원본이다. 덮어쓰거나 반복 압축하지 않는다.
-- 원본은 `assets/source/`, 런타임은 `public/assets/`로 분리한다. 메타데이터와 QC는
-  `assets/metadata/`에 남긴다.
+- 원본은 `assets/source/`, 런타임은 `public/assets/`로 분리한다. `public/assets/`에는
+  실제로 bundle이 로드하는 파일만 둔다. 교체된 asset은 삭제하지 말고 `assets/source/`로
+  옮긴다. 메타데이터와 QC는 `assets/metadata/`에 남긴다.
 - 새 bitmap은 전부 `$imagegen` built-in image generation으로 만든다. action별로 개별
   호출하고, 하나의 혼합 atlas 요청으로 묶지 않는다.
 - 투명 출력은 flat `#FF00FF` chroma-key 배경으로 생성한 뒤 로컬에서 alpha 처리한다.

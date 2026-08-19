@@ -44,7 +44,27 @@ export default tseslint.config(
         "error",
         { "name": "document", "message": "Simulation must not depend on the DOM." },
         { "name": "window", "message": "Simulation must not depend on browser globals." },
-        { "name": "HTMLElement", "message": "Simulation must not depend on DOM types." }
+        { "name": "HTMLElement", "message": "Simulation must not depend on DOM types." },
+        { "name": "performance", "message": "Simulation advances by tick, never by wall-clock time." },
+        { "name": "Date", "message": "Simulation advances by tick, never by wall-clock time." }
+      ],
+      "no-restricted-properties": [
+        "error",
+        {
+          "object": "Math",
+          "property": "random",
+          "message": "All randomness must come from the seeded PRNG so replays stay reproducible."
+        },
+        {
+          "object": "Date",
+          "property": "now",
+          "message": "Simulation advances by tick, never by wall-clock time."
+        },
+        {
+          "object": "performance",
+          "property": "now",
+          "message": "Simulation advances by tick, never by wall-clock time."
+        }
       ],
       "no-restricted-imports": [
         "error",
