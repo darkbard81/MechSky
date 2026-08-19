@@ -70,7 +70,12 @@ export default tseslint.config(
     }
   },
   {
-    files: ["electron/**/*.{ts,cts}", "tests/**/*.ts", "*.config.ts"],
+    files: [
+      "electron/**/*.{ts,cts}",
+      "tests/**/*.ts",
+      "scripts/**/*.mjs",
+      "*.config.ts"
+    ],
     languageOptions: {
       globals: globals.node,
     }

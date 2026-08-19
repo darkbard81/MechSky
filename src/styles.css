@@ -270,6 +270,77 @@ button {
   font-weight: 550;
 }
 
+.movement-hud {
+  position: absolute;
+  z-index: 4;
+  bottom: 1rem;
+  left: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(8.4rem, 1fr));
+  min-width: min(22rem, calc(100% - 2rem));
+  overflow: hidden;
+  border: 1px solid rgb(136 212 218 / 24%);
+  border-radius: 0.28rem;
+  color: #718f96;
+  background: rgb(2 9 13 / 82%);
+  box-shadow: 0 0.8rem 2.2rem rgb(0 0 0 / 24%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.61rem;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.movement-hud div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.42rem 0.55rem;
+  border-right: 1px solid rgb(136 212 218 / 10%);
+  border-bottom: 1px solid rgb(136 212 218 / 10%);
+}
+
+.movement-hud strong {
+  overflow: hidden;
+  color: #c8efef;
+  font-weight: 560;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#target-lock[data-locked="true"] {
+  color: #ffb099;
+  text-shadow: 0 0 0.6rem rgb(255 139 104 / 65%);
+}
+
+.control-guide {
+  position: absolute;
+  z-index: 4;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  justify-items: end;
+  gap: 0.34rem;
+  color: #7e9ca2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.control-guide span {
+  border: 1px solid rgb(136 212 218 / 13%);
+  border-radius: 0.2rem;
+  padding: 0.32rem 0.45rem;
+  background: rgb(2 9 13 / 68%);
+}
+
+kbd {
+  color: #bcebec;
+  font: inherit;
+}
+
 .status-dot {
   width: 0.5rem;
   height: 0.5rem;
@@ -357,6 +428,12 @@ button {
   }
 }
 
+@media (max-width: 1000px) {
+  .control-guide {
+    display: none;
+  }
+}
+
 @media (max-width: 800px) {
   body {
     overflow: auto;
@@ -368,6 +445,18 @@ button {
 
   .battle-panel {
     min-height: 24rem;
+  }
+
+}
+
+@media (max-width: 620px) {
+  .movement-hud {
+    grid-template-columns: 1fr;
+    min-width: 10.5rem;
+  }
+
+  .movement-hud div:nth-child(-n + 2) {
+    display: none;
   }
 }
 

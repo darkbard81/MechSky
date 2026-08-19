@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0 완료, M1 대기
+> 상태: M0·M1 완료, M2 대기
 
 ## 1. 목표
 
@@ -61,7 +61,7 @@
 
 | 행동 | 키보드 | Steam Deck / Gamepad |
 |---|---|---|
-| 이동 | `WASD` | 왼쪽 스틱 |
+| 이동 | `WASD` / 방향키 / NumPad 8방향 | 왼쪽 스틱 |
 | 주 공격 / 콤보 진행 | `J` | `A` |
 | Launcher / 공중 Finisher | `K` | `X` |
 | Dash / 공중 추격 | `Shift` | `B` |
@@ -296,6 +296,14 @@ outline을 사용한다.
 
 - 이동, dash, 경계 충돌을 담은 10초 clip
 - 60/120/144 Hz render 환경에서 동일 tick 결과 단위 테스트
+
+완료 기록 (2026-08-19):
+
+- [`이동·dash·경계 충돌 10초 clip`](./evidence/m1/movement-dash-boundary.mp4)
+- [`1초 간격 contact sheet`](./evidence/m1/contact-sheet.png)
+- [`640 units/s dash 잔상 frame`](./evidence/m1/dash-afterimage.png)
+- `WASD`, 방향키, NumPad 8방향, 왼쪽 스틱을 동일 `MoveIntent`로 통합
+- 60/120/144 Hz에서 동일한 600번째 snapshot 및 M1 자동 테스트 통과
 
 ### M2. 지상 2타와 타격 반응
 

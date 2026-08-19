@@ -7,10 +7,8 @@ export interface BattleLayout {
   readonly width: number;
   readonly height: number;
   readonly actorScale: number;
-  readonly groundY: number;
-  readonly playerX: number;
-  readonly targetX: number;
-  readonly targetReticleY: number;
+  readonly cameraAnchorX: number;
+  readonly cameraAnchorY: number;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -22,16 +20,13 @@ export function calculateBattleLayout(width: number, height: number): BattleLayo
   const safeHeight = Math.max(1, height);
   const referenceArea = REFERENCE_VIEWPORT.width * REFERENCE_VIEWPORT.height;
   const areaScale = Math.sqrt((safeWidth * safeHeight) / referenceArea);
-  const actorScale = clamp(areaScale, 0.94, 1.28);
-  const groundY = safeHeight * 0.72;
+  const actorScale = clamp(areaScale, 0.88, 1.28);
 
   return {
     width: safeWidth,
     height: safeHeight,
     actorScale,
-    groundY,
-    playerX: safeWidth * (safeWidth < 640 ? 0.31 : 0.34),
-    targetX: safeWidth * (safeWidth < 640 ? 0.73 : 0.7),
-    targetReticleY: groundY - 108 * actorScale,
+    cameraAnchorX: safeWidth * (safeWidth < 640 ? 0.48 : 0.44),
+    cameraAnchorY: safeHeight * 0.62,
   };
 }

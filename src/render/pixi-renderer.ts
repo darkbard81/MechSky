@@ -3,8 +3,9 @@ import "pixi.js/prepare";
 import { Application, Ticker } from "pixi.js";
 import type { SimulationFrame } from "../sim/world/world";
 import { loadBattleAssets, type AssetLoadProgress } from "./assets/battle-assets";
+import { BattleScene } from "./battle-scene";
+import { interpolateSimulationFrame } from "./snapshot-interpolation";
 import { createStageLayers, type StageLayers } from "./stage-layers";
-import { StaticBattleScene } from "./static-battle-scene";
 
 const MAX_RESOLUTION = 2;
 const PREWARM_TIMEOUT_MILLISECONDS = 5_000;
@@ -46,14 +47,18 @@ async function prewarmStage(
 export class PixiBattleRenderer {
   private readonly application = new Application();
   private applicationInitialized = false;
-  private battleScene: StaticBattleScene | undefined;
+  private battleScene: BattleScene | undefined;
   private layers: StageLayers | undefined;
   private initialized = false;
   private lifecycleGeneration = 0;
   private viewportHeight = -1;
   private viewportWidth = -1;
 
-  async initialize(host: HTMLElement, onProgress: AssetLoadProgress): Promise<void> {
+  async initialize(
+    host: HTMLElement,
+    initialFrame: SimulationFrame,
+    onProgress: AssetLoadProgress,
+  ): Promise<void> {
     if (this.initialized) {
       return;
     }
@@ -82,7 +87,7 @@ export class PixiBattleRenderer {
     });
     this.assertCurrentGeneration(generation);
     onProgress(0.86, "첫 전투 scene 구성");
-    this.battleScene = new StaticBattleScene(this.layers, assets);
+    this.battleScene = new BattleScene(this.layers, assets, initialFrame.current);
     this.resizeSceneIfNeeded();
 
     onProgress(0.93, "texture GPU prewarm");
@@ -96,13 +101,20 @@ export class PixiBattleRenderer {
     this.initialized = true;
   }
 
-  present(_frame: SimulationFrame, _alpha: number): void {
-    if (!this.initialized || this.layers === undefined) {
+  present(
+    frame: SimulationFrame,
+    alpha: number,
+    renderDeltaSeconds: number,
+  ): void {
+    if (!this.initialized || this.layers === undefined || this.battleScene === undefined) {
       throw new Error("Pixi renderer must be initialized before presenting a frame.");
     }
 
     this.resizeSceneIfNeeded();
-    // Views will project interpolated simulation snapshots into these layers.
+    this.battleScene.present(
+      interpolateSimulationFrame(frame, alpha),
+      renderDeltaSeconds,
+    );
   }
 
   render(): void {

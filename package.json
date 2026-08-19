@@ -17,6 +17,7 @@
     "build:web": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "start": "electron .",
+    "demo:m1": "node scripts/m1-input-demo.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",

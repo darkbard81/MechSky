@@ -1,4 +1,7 @@
 import type { PlatformKind } from "../../platform/platform";
+import type { InputControl, InputSource } from "../../input/player-input";
+import type { Vector2 } from "../../sim/math/vector2";
+import type { FighterState, WorldPosition } from "../../sim/world/entity";
 
 export interface DevelopmentHudElements {
   readonly bootOverlay: HTMLElement;
@@ -9,14 +12,27 @@ export interface DevelopmentHudElements {
   readonly loadingProgress: HTMLElement;
   readonly simTick: HTMLElement;
   readonly simAlpha: HTMLElement;
+  readonly playerPosition: HTMLElement;
+  readonly playerVelocity: HTMLElement;
+  readonly playerState: HTMLElement;
+  readonly dashCooldown: HTMLElement;
+  readonly targetLock: HTMLElement;
+  readonly inputSource: HTMLElement;
   readonly platformKind: HTMLElement;
   readonly runtimeMessage: HTMLElement;
 }
 
 export interface DevelopmentHudState {
   readonly alpha: number;
+  readonly dashCooldownTicks: number;
+  readonly fighterState: FighterState;
+  readonly inputControl: InputControl;
+  readonly inputSource: InputSource;
+  readonly locked: boolean;
   readonly platform: PlatformKind;
+  readonly position: Readonly<WorldPosition>;
   readonly tick: number;
+  readonly velocity: Readonly<Vector2>;
 }
 
 export class DevelopmentHud {
@@ -43,7 +59,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "렌더러와 독립된 60 Hz simulation clock이 실행 중입니다.";
+      "WASD·방향키·NumPad 또는 왼쪽 스틱으로 이동하고 Shift/B로 Dash, Tab/LB로 Lock합니다.";
   }
 
   failed(message: string): void {
@@ -58,13 +74,24 @@ export class DevelopmentHud {
   }
 
   present(state: DevelopmentHudState): void {
+    this.elements.simAlpha.textContent = state.alpha.toFixed(2);
+
     if (state.tick === this.lastTick) {
       return;
     }
 
     this.lastTick = state.tick;
     this.elements.simTick.textContent = state.tick.toString();
-    this.elements.simAlpha.textContent = state.alpha.toFixed(2);
+    this.elements.playerPosition.textContent = `${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)}`;
+    this.elements.playerVelocity.textContent = `${state.velocity.x.toFixed(1)}, ${state.velocity.y.toFixed(1)}`;
+    this.elements.playerState.textContent = state.fighterState.toUpperCase();
+    this.elements.dashCooldown.textContent =
+      state.dashCooldownTicks === 0
+        ? "READY"
+        : `${(state.dashCooldownTicks / 60).toFixed(2)}s`;
+    this.elements.targetLock.textContent = state.locked ? "LOCKED" : "SEARCH";
+    this.elements.targetLock.dataset["locked"] = state.locked.toString();
+    this.elements.inputSource.textContent = `${state.inputSource.toUpperCase()} · ${state.inputControl}`;
   }
 
   showMessage(message: string): void {

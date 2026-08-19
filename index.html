@@ -27,7 +27,7 @@
           <div id="game-surface"></div>
           <div id="boot-overlay" class="boot-overlay" aria-live="assertive">
             <div class="boot-card">
-              <p class="boot-kicker">M0 // FIRST CONTACT</p>
+              <p class="boot-kicker">M1 // ARENA LINK</p>
               <div class="boot-title-row">
                 <h2>전투 자산 동기화</h2>
                 <strong id="loading-percent">0%</strong>
@@ -46,21 +46,52 @@
               <p id="loading-detail" class="loading-detail">런타임 부팅</p>
             </div>
           </div>
-          <div class="battle-hud" aria-live="polite">
+          <div class="battle-hud" aria-label="시뮬레이션 상태">
             <span class="status-dot" aria-hidden="true"></span>
             <span id="boot-status">초기화 중</span>
             <span class="hud-divider" aria-hidden="true"></span>
             <span>SIM <strong id="sim-tick">0</strong></span>
             <span>ALPHA <strong id="sim-alpha">0.00</strong></span>
           </div>
+          <div class="movement-hud" aria-label="플레이어 이동 상태">
+            <div>
+              <span>POS</span>
+              <strong id="player-position">-155.0, 72.0</strong>
+            </div>
+            <div>
+              <span>VEL</span>
+              <strong id="player-velocity">0.0, 0.0</strong>
+            </div>
+            <div>
+              <span>STATE</span>
+              <strong id="player-state">IDLE</strong>
+            </div>
+            <div>
+              <span>DASH</span>
+              <strong id="dash-cooldown">READY</strong>
+            </div>
+            <div>
+              <span>TARGET</span>
+              <strong id="target-lock" data-locked="false">SEARCH</strong>
+            </div>
+            <div>
+              <span>INPUT</span>
+              <strong id="input-source">KEYBOARD · WASD</strong>
+            </div>
+          </div>
+          <div class="control-guide" aria-label="이동 조작 안내">
+            <span><kbd>WASD</kbd> / <kbd>↑←↓→</kbd> / <kbd>NUM 1–9</kbd> 이동</span>
+            <span><kbd>SHIFT</kbd> DASH</span>
+            <span><kbd>TAB</kbd> LOCK</span>
+          </div>
         </section>
 
         <aside class="architecture-panel">
-          <p class="panel-kicker">M0 // HANGAR TEST</p>
-          <h2>첫 전투 화면</h2>
+          <p class="panel-kicker">M1 // MOVEMENT TEST</p>
+          <h2>이동 가능한 Arena</h2>
           <p>
-            256×256 런타임 기체와 imagegen 격납고 모듈을 manifest bundle로
-            불러와 첫 frame 전에 GPU에 준비합니다.
+            입력은 60 Hz tick 경계에서 intent로 소비됩니다. 가속·감속·대시와
+            원형 경계 충돌은 simulation이 계산하고 Pixi는 snapshot만 보간합니다.
           </p>
           <dl class="runtime-grid">
             <div>
@@ -68,8 +99,8 @@
               <dd>Fixed 60 Hz</dd>
             </div>
             <div>
-              <dt>Renderer</dt>
-              <dd>PixiJS WebGL + Prewarm</dd>
+              <dt>Movement</dt>
+              <dd>Circle bounds + Dash</dd>
             </div>
             <div>
               <dt>Reference</dt>
@@ -80,7 +111,7 @@
               <dd id="platform-kind">확인 중</dd>
             </div>
           </dl>
-          <p id="runtime-message" class="runtime-message">런타임을 부팅하고 있습니다.</p>
+          <p id="runtime-message" class="runtime-message">전투 입력을 준비하고 있습니다.</p>
         </aside>
       </main>
     </div>
