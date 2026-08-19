@@ -1,0 +1,44 @@
+{
+  "name": "mech-sky",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A deterministic 2.5D combat game built with TypeScript, PixiJS, DOM UI, and Electron.",
+  "main": "dist-electron/main.js",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "npm run build:electron && concurrently -k -s first \"npm:dev\" \"npm:electron:launch\"",
+    "electron:launch": "wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "build": "npm run check && npm run build:web && npm run build:electron",
+    "build:web": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "start": "electron .",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^43.4.1",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11",
+    "wait-on": "^9.1.0"
+  }
+}

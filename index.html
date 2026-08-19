@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MechSky</title>
+  </head>
+  <body>
+    <div id="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">2.5D COMBAT PROTOTYPE</p>
+          <h1>MechSky</h1>
+        </div>
+        <button id="fullscreen-button" class="utility-button" type="button">
+          전체 화면
+        </button>
+      </header>
+
+      <main class="workspace">
+        <section class="battle-panel" aria-label="전투 렌더링 영역">
+          <div id="game-surface"></div>
+          <div class="battle-hud" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="boot-status">초기화 중</span>
+            <span class="hud-divider" aria-hidden="true"></span>
+            <span>SIM <strong id="sim-tick">0</strong></span>
+            <span>ALPHA <strong id="sim-alpha">0.00</strong></span>
+          </div>
+        </section>
+
+        <aside class="architecture-panel">
+          <p class="panel-kicker">ARCHITECTURE ONLINE</p>
+          <h2>개발환경 준비 완료</h2>
+          <p>
+            전투 시뮬레이션과 표현 계층이 분리되어 있으며, 브라우저와 Electron이
+            동일한 renderer 코드를 실행합니다.
+          </p>
+          <dl class="runtime-grid">
+            <div>
+              <dt>Simulation</dt>
+              <dd>Fixed 60 Hz</dd>
+            </div>
+            <div>
+              <dt>Renderer</dt>
+              <dd>PixiJS WebGL</dd>
+            </div>
+            <div>
+              <dt>Application UI</dt>
+              <dd>Vanilla DOM</dd>
+            </div>
+            <div>
+              <dt>Platform</dt>
+              <dd id="platform-kind">확인 중</dd>
+            </div>
+          </dl>
+          <p id="runtime-message" class="runtime-message">런타임을 부팅하고 있습니다.</p>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

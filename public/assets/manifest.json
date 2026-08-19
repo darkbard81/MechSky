@@ -1,0 +1,6 @@
+{
+  "bundles": [
+    { "name": "core", "assets": [] },
+    { "name": "battle-common", "assets": [] }
+  ]
+}

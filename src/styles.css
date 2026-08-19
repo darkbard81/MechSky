@@ -1,0 +1,255 @@
+:root {
+  color: #d8e7ec;
+  background: #050a0f;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app-shell {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 10%, rgb(27 73 84 / 35%), transparent 32rem),
+    linear-gradient(145deg, #071017 0%, #030609 72%);
+}
+
+button {
+  font: inherit;
+}
+
+#app-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.app-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgb(139 205 214 / 16%);
+}
+
+.app-header h1,
+.architecture-panel h2,
+.app-header p,
+.architecture-panel p {
+  margin: 0;
+}
+
+.app-header h1 {
+  color: #effbff;
+  font-size: clamp(1.65rem, 4vw, 2.6rem);
+  font-weight: 620;
+  letter-spacing: 0.04em;
+}
+
+.eyebrow,
+.panel-kicker {
+  color: #65d7dc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.67rem;
+  letter-spacing: 0.2em;
+}
+
+.eyebrow {
+  margin-bottom: 0.35rem !important;
+}
+
+.utility-button {
+  border: 1px solid rgb(101 215 220 / 45%);
+  border-radius: 0.25rem;
+  padding: 0.55rem 0.85rem;
+  color: #b8f4f2;
+  background: rgb(9 42 49 / 72%);
+  cursor: pointer;
+}
+
+.utility-button:hover,
+.utility-button:focus-visible {
+  border-color: #65d7dc;
+  outline: none;
+  background: rgb(17 71 79 / 82%);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 23rem);
+  gap: clamp(1rem, 2.4vw, 2rem);
+  min-height: 0;
+  padding-top: clamp(1rem, 2.4vw, 2rem);
+}
+
+.battle-panel,
+.architecture-panel {
+  border: 1px solid rgb(139 205 214 / 14%);
+  border-radius: 0.35rem;
+  background: rgb(7 18 25 / 80%);
+  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 28%);
+}
+
+.battle-panel {
+  position: relative;
+  min-height: 28rem;
+  overflow: hidden;
+}
+
+#game-surface,
+#game-surface canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#game-surface {
+  position: absolute;
+  inset: 0;
+}
+
+#game-surface::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgb(101 215 220 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(101 215 220 / 4%) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  content: "";
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, black 34%, black);
+}
+
+#game-surface canvas {
+  display: block;
+}
+
+.battle-hud {
+  position: absolute;
+  z-index: 1;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid rgb(136 212 218 / 20%);
+  border-radius: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  color: #a9c5ca;
+  background: rgb(2 9 13 / 78%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+.battle-hud strong {
+  color: #ddfbfa;
+  font-weight: 550;
+}
+
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #65d7dc;
+  box-shadow: 0 0 0.8rem #65d7dc;
+}
+
+.hud-divider {
+  width: 1px;
+  height: 1rem;
+  background: rgb(136 212 218 / 22%);
+}
+
+.architecture-panel {
+  align-self: stretch;
+  padding: clamp(1.35rem, 2.5vw, 2rem);
+}
+
+.architecture-panel h2 {
+  margin-top: 0.45rem;
+  color: #f0fbff;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.architecture-panel > p:not(.panel-kicker, .runtime-message) {
+  margin-top: 0.9rem;
+  color: #8ba8ae;
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.runtime-grid {
+  display: grid;
+  gap: 0;
+  margin: 1.7rem 0 0;
+  border-top: 1px solid rgb(139 205 214 / 13%);
+}
+
+.runtime-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgb(139 205 214 / 10%);
+}
+
+.runtime-grid dt,
+.runtime-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.runtime-grid dt {
+  color: #718b91;
+}
+
+.runtime-grid dd {
+  color: #bde6e7;
+  text-align: right;
+}
+
+.runtime-message {
+  margin-top: 1.2rem !important;
+  color: #65d7dc;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+  body {
+    overflow: auto;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-panel {
+    min-height: 24rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
