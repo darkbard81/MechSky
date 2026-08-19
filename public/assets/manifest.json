@@ -1,6 +1,27 @@
 {
   "bundles": [
     { "name": "core", "assets": [] },
-    { "name": "battle-common", "assets": [] }
+    {
+      "name": "battle-common",
+      "assets": [
+        {
+          "alias": "arena-hangar-floor",
+          "src": "assets/arenas/hangar/hangar-floor.png",
+          "data": {
+            "addressMode": "repeat",
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-static",
+          "src": "assets/characters/player/mech-static.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        }
+      ]
+    }
   ]
 }

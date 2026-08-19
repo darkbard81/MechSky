@@ -7,7 +7,12 @@ import { DevelopmentHud } from "../ui/hud/development-hud";
 
 export interface GameAppElements {
   readonly surface: HTMLDivElement;
+  readonly bootOverlay: HTMLElement;
   readonly bootStatus: HTMLElement;
+  readonly loadingBar: HTMLElement;
+  readonly loadingDetail: HTMLElement;
+  readonly loadingPercent: HTMLElement;
+  readonly loadingProgress: HTMLElement;
   readonly simTick: HTMLElement;
   readonly simAlpha: HTMLElement;
   readonly platformKind: HTMLElement;
@@ -38,11 +43,23 @@ export class GameApp {
       return;
     }
 
-    await this.renderer.initialize(this.elements.surface);
-    this.running = true;
-    this.clock.reset(performance.now());
-    this.hud.ready(this.platform.kind);
-    this.animationFrameId = requestAnimationFrame(this.frame);
+    this.hud.loading(0, "런타임 부팅");
+
+    try {
+      await this.renderer.initialize(this.elements.surface, (progress, detail) => {
+        this.hud.loading(progress, detail);
+      });
+      this.running = true;
+      this.clock.reset(performance.now());
+      this.hud.ready(this.platform.kind);
+      this.elements.surface.dataset["ready"] = "true";
+      this.animationFrameId = requestAnimationFrame(this.frame);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "알 수 없는 초기화 오류";
+      this.elements.surface.dataset["ready"] = "error";
+      this.hud.failed(message);
+      throw error;
+    }
   }
 
   destroy(): void {

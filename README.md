@@ -25,6 +25,9 @@ Electron 셸과 함께 실행하려면:
 npm run dev:electron
 ```
 
+Electron의 초기 content viewport는 `1024×768`이다. 첫 화면은
+`battle-common` PixiJS bundle을 로드하고 texture를 GPU에 prewarm한 뒤 표시한다.
+
 ## 검증
 
 ```bash
@@ -47,6 +50,7 @@ src/platform/   브라우저/Electron 어댑터
 electron/       main process와 sandbox preload
 tests/sim/      순수 simulation 테스트
 public/assets/  PixiJS bundle manifest와 정적 에셋
+assets/         imagegen 원본과 asset pipeline QC 메타데이터
 ```
 
 `src/render/pixi-renderer.ts`는 PixiJS ticker를 자동 시작하지 않는다. `GameApp`이

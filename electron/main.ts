@@ -9,10 +9,11 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: 1024,
+    height: 768,
     minWidth: 960,
     minHeight: 600,
+    useContentSize: true,
     backgroundColor: "#050a0f",
     show: false,
     webPreferences: {

@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: 구현 전 계획
+> 상태: M0 완료, M1 대기
 
 ## 1. 목표
 
@@ -245,7 +245,7 @@ outline을 사용한다.
 - loading progress를 DOM boot screen에 표시
 - `$imagegen`으로 만든 256×256 arena module로 hangar test floor 구성
 - player sprite, ground shadow, static target marker 배치
-- camera와 1280×800 기준 viewport 확정
+- camera와 1024×768 기준 viewport 확정
 - texture를 첫 표시 전에 GPU prewarm
 
 사용자 가시 완료 조건:
@@ -257,9 +257,17 @@ outline을 사용한다.
 
 검증 증거:
 
-- 1280×800 browser screenshot
+- 1024×768 browser screenshot
 - 1920×1080 browser screenshot
 - asset manifest 단위 테스트
+
+완료 기록 (2026-08-19):
+
+- [`1024×768 기준 화면`](./evidence/m0/browser-1024x768.png)
+- [`1920×1080 resize 화면`](./evidence/m0/browser-1920x1080.png)
+- [`asset 누락 오류 화면`](./evidence/m0/browser-asset-error.png)
+- [`production file:// 화면`](./evidence/m0/production-file-1024x768.png)
+- `npm run build` 및 manifest/layout 포함 8개 테스트 통과
 
 ### M1. 이동 가능한 2.5D arena
 
@@ -522,7 +530,7 @@ src/content/arenas/hangar-test.json
 
 | Gate | 시점 | 사용자에게 보여줄 것 | 승인 질문 |
 |---|---|---|---|
-| A | M0 완료 | 1280×800 정적 battle screenshot | mech 크기, 구도, HUD 위치가 적절한가? |
+| A | M0 완료 | 1024×768 정적 battle screenshot | mech 크기, 구도, HUD 위치가 적절한가? |
 | B | M1 완료 | 이동/dash 10초 clip | 속도감과 camera가 편안한가? |
 | C | M2 완료 | hit/miss 비교 clip | 타격이 명확하고 과하지 않은가? |
 | D | M3 완료 | 전체 공중 콤보 clip | 높이와 추격 흐름이 읽히는가? |

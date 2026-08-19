@@ -1,4 +1,3 @@
-import "./styles.css";
 import { GameApp } from "./app/game-app";
 
 function requireElement<T extends HTMLElement>(id: string): T {
@@ -13,7 +12,12 @@ function requireElement<T extends HTMLElement>(id: string): T {
 
 const game = new GameApp({
   surface: requireElement<HTMLDivElement>("game-surface"),
+  bootOverlay: requireElement<HTMLElement>("boot-overlay"),
   bootStatus: requireElement<HTMLSpanElement>("boot-status"),
+  loadingBar: requireElement<HTMLElement>("loading-bar"),
+  loadingDetail: requireElement<HTMLElement>("loading-detail"),
+  loadingPercent: requireElement<HTMLElement>("loading-percent"),
+  loadingProgress: requireElement<HTMLElement>("loading-progress"),
   simTick: requireElement<HTMLElement>("sim-tick"),
   simAlpha: requireElement<HTMLElement>("sim-alpha"),
   platformKind: requireElement<HTMLElement>("platform-kind"),
@@ -23,9 +27,6 @@ const game = new GameApp({
 
 void game.start().catch((error: unknown) => {
   console.error(error);
-  requireElement<HTMLElement>("boot-status").textContent = "초기화 실패";
-  requireElement<HTMLElement>("runtime-message").textContent =
-    error instanceof Error ? error.message : "알 수 없는 초기화 오류";
 });
 
 if (import.meta.hot !== undefined) {

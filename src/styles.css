@@ -108,6 +108,7 @@ button {
   position: relative;
   min-height: 28rem;
   overflow: hidden;
+  isolation: isolate;
 }
 
 #game-surface,
@@ -123,6 +124,7 @@ button {
 
 #game-surface::after {
   position: absolute;
+  z-index: 1;
   inset: 0;
   background:
     linear-gradient(rgb(101 215 220 / 4%) 1px, transparent 1px),
@@ -137,9 +139,116 @@ button {
   display: block;
 }
 
+.boot-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 48%, rgb(26 78 88 / 32%), transparent 20rem),
+    rgb(3 10 14 / 90%);
+  backdrop-filter: blur(0.3rem);
+}
+
+.boot-overlay[hidden] {
+  display: none;
+}
+
+.boot-card {
+  width: min(29rem, 88%);
+  border: 1px solid rgb(101 215 220 / 36%);
+  border-radius: 0.3rem;
+  padding: 1.3rem;
+  background: rgb(5 19 25 / 92%);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 45%);
+}
+
+.boot-kicker,
+.boot-title-row h2,
+.loading-detail {
+  margin: 0;
+}
+
+.boot-kicker {
+  color: #65d7dc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+}
+
+.boot-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.45rem;
+}
+
+.boot-title-row h2 {
+  color: #effbff;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.boot-title-row strong {
+  color: #b9fbfb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+
+.loading-track {
+  height: 0.35rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(101 215 220 / 13%);
+}
+
+.loading-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #369da8, #8ff9f5);
+  box-shadow: 0 0 1rem rgb(101 215 220 / 65%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 160ms ease-out;
+}
+
+.loading-detail {
+  min-height: 1.2rem;
+  margin-top: 0.7rem;
+  color: #8ba8ae;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.67rem;
+  line-height: 1.55;
+}
+
+.boot-overlay.is-error {
+  background: rgb(20 5 7 / 93%);
+}
+
+.boot-overlay.is-error .boot-card {
+  border-color: rgb(255 104 104 / 52%);
+}
+
+.boot-overlay.is-error .boot-kicker,
+.boot-overlay.is-error .boot-title-row strong,
+.boot-overlay.is-error .loading-detail {
+  color: #ffaaa0;
+}
+
+.boot-overlay.is-error .loading-bar {
+  background: #ff6868;
+  box-shadow: 0 0 1rem rgb(255 104 104 / 55%);
+}
+
 .battle-hud {
   position: absolute;
-  z-index: 1;
+  z-index: 4;
   top: 1rem;
   left: 1rem;
   display: flex;
@@ -230,6 +339,22 @@ button {
   color: #65d7dc;
   font-size: 0.78rem;
   line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  #app-shell {
+    padding: 1rem;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 16rem);
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .architecture-panel {
+    padding: 1.2rem;
+  }
 }
 
 @media (max-width: 800px) {
