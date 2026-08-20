@@ -113,8 +113,11 @@ documents/      아키텍처, 로드맵, milestone 증거
 - 원본은 `assets/source/`, 런타임은 `public/assets/`로 분리한다. `public/assets/`에는
   실제로 bundle이 로드하는 파일만 둔다. 교체된 asset은 삭제하지 말고 `assets/source/`로
   옮긴다. 메타데이터와 QC는 `assets/metadata/`에 남긴다.
-- 새 bitmap은 전부 `$imagegen` built-in image generation으로 만든다. action별로 개별
-  호출하고, 하나의 혼합 atlas 요청으로 묶지 않는다.
+- 새 bitmap은 전부 image model로 만든다. Codex에서는 `$imagegen`, Claude Code에서는
+  `~/.claude/skills/shared/image-gen.sh`(Grok Build CLI 위임)를 쓴다. action별로
+  개별 호출하고, 하나의 혼합 atlas 요청으로 묶지 않는다.
+- Grok 경로는 출력이 JPEG 기반이라 chroma 단계 전에 `flatten_chroma.py`를 반드시
+  거친다. 자세한 내용은 [`assets/README.md`](assets/README.md).
 - 투명 출력은 flat `#FF00FF` chroma-key 배경으로 생성한 뒤 로컬에서 alpha 처리한다.
   배경에 그림자, gradient, floor, reflection을 넣지 않는다.
 - Canvas, SVG, CSS, Pixi `Graphics`, PIL 도형으로 최종 sprite를 대체하지 않는다.
