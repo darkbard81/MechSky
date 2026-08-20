@@ -41,7 +41,9 @@ const NUMPAD_FALLBACK_BY_KEY: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const DASH_CODES = new Set(["ShiftLeft", "ShiftRight"]);
+const ATTACK_CODES = new Set(["KeyJ"]);
 const LOCK_CODE = "Tab";
+const MELEE_SLOT = 0;
 
 export type InputSource = "keyboard" | "gamepad";
 export type InputControl = "WASD" | "ARROWS" | "NUMPAD" | "KEYBOARD" | "LEFT STICK";
@@ -52,7 +54,12 @@ export interface InputStatus {
 }
 
 export function resolveKeyboardCode(event: Pick<KeyboardEvent, "code" | "key" | "location">): string {
-  if (event.code in DIRECTION_BY_CODE || DASH_CODES.has(event.code) || event.code === LOCK_CODE) {
+  if (
+    event.code in DIRECTION_BY_CODE ||
+    DASH_CODES.has(event.code) ||
+    ATTACK_CODES.has(event.code) ||
+    event.code === LOCK_CODE
+  ) {
     return event.code;
   }
 
@@ -126,8 +133,10 @@ function buttonPressed(gamepad: Gamepad, index: number): boolean {
 
 export class PlayerInputController {
   private readonly pressedCodes = new Set<string>();
+  private attackQueued = false;
   private dashQueued = false;
   private lockQueued = false;
+  private previousAttackButton = false;
   private previousDashButton = false;
   private previousLockButton = false;
   private status: InputStatus = { source: "keyboard", control: "WASD" };
@@ -155,6 +164,11 @@ export class PlayerInputController {
     const intents: CommandIntent[] = [
       { type: "move", fighterId: this.fighterId, direction: move },
     ];
+
+    if (this.attackQueued) {
+      intents.push({ type: "attack", fighterId: this.fighterId, slot: MELEE_SLOT });
+      this.attackQueued = false;
+    }
 
     if (this.dashQueued) {
       intents.push({ type: "dash", fighterId: this.fighterId });
@@ -188,6 +202,7 @@ export class PlayerInputController {
     const gamepad = this.readGamepads().find((candidate) => candidate?.connected);
 
     if (gamepad === undefined || gamepad === null) {
+      this.previousAttackButton = false;
       this.previousDashButton = false;
       this.previousLockButton = false;
       return { ...ZERO_VECTOR };
@@ -197,8 +212,13 @@ export class PlayerInputController {
       gamepad.axes[0] ?? 0,
       gamepad.axes[1] ?? 0,
     );
+    const attackButton = buttonPressed(gamepad, 0);
     const dashButton = buttonPressed(gamepad, 1);
     const lockButton = buttonPressed(gamepad, 4);
+
+    if (attackButton && !this.previousAttackButton) {
+      this.attackQueued = true;
+    }
 
     if (dashButton && !this.previousDashButton) {
       this.dashQueued = true;
@@ -208,10 +228,11 @@ export class PlayerInputController {
       this.lockQueued = true;
     }
 
-    if (vectorLength(move) > 0 || dashButton || lockButton) {
+    if (vectorLength(move) > 0 || attackButton || dashButton || lockButton) {
       this.status = { source: "gamepad", control: "LEFT STICK" };
     }
 
+    this.previousAttackButton = attackButton;
     this.previousDashButton = dashButton;
     this.previousLockButton = lockButton;
     return move;
@@ -220,7 +241,8 @@ export class PlayerInputController {
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     const code = resolveKeyboardCode(event);
     const isDirection = code in DIRECTION_BY_CODE;
-    const isAction = DASH_CODES.has(code) || code === LOCK_CODE;
+    const isAction =
+      DASH_CODES.has(code) || ATTACK_CODES.has(code) || code === LOCK_CODE;
 
     if (!isDirection && !isAction) {
       return;
@@ -231,16 +253,25 @@ export class PlayerInputController {
 
     if (isDirection) {
       this.pressedCodes.add(code);
-    } else if (!event.repeat && DASH_CODES.has(code)) {
+    } else if (event.repeat) {
+      // Held buttons must not refill the buffer every frame.
+    } else if (ATTACK_CODES.has(code)) {
+      this.attackQueued = true;
+    } else if (DASH_CODES.has(code)) {
       this.dashQueued = true;
-    } else if (!event.repeat && code === LOCK_CODE) {
+    } else if (code === LOCK_CODE) {
       this.lockQueued = true;
     }
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
     const code = resolveKeyboardCode(event);
-    if (code in DIRECTION_BY_CODE || DASH_CODES.has(code) || code === LOCK_CODE) {
+    if (
+      code in DIRECTION_BY_CODE ||
+      DASH_CODES.has(code) ||
+      ATTACK_CODES.has(code) ||
+      code === LOCK_CODE
+    ) {
       event.preventDefault();
     }
     this.pressedCodes.delete(code);
@@ -254,8 +285,10 @@ export class PlayerInputController {
 
   private readonly clearHeldInput = (): void => {
     this.pressedCodes.clear();
+    this.attackQueued = false;
     this.dashQueued = false;
     this.lockQueued = false;
+    this.previousAttackButton = false;
     this.previousDashButton = false;
     this.previousLockButton = false;
   };

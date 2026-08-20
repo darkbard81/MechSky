@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1 완료, M2 대기
+> 상태: M0·M1·M2 완료, M3 대기
 
 ## 1. 목표
 
@@ -349,6 +349,18 @@ outline을 사용한다.
 
 - hit/miss 비교 clip
 - startup/active/recovery, cancel window, 중복 hit 방지 단위 테스트
+
+완료 기록 (2026-08-20):
+
+- [`hit/miss 비교 10초 clip`](./evidence/m2/combat-hit-miss.mp4)
+- [`1초 간격 contact sheet`](./evidence/m2/contact-sheet.png)
+- [`active frame의 hitbox와 실제 판정`](./evidence/m2/active-hitbox-frame6.png)
+- [`M2 검증 기록`](./evidence/m2/README.md)
+- `AttackDefinition`/`AttackTimeline`, tag 기반 cancel, 9프레임 입력 buffer,
+  actor별 hit-stop, spatial hash 후보 조회 + 평면·높이 판정을 구현
+- 적 기체는 §5.4대로 동일 idle sheet에 enemy palette tint를 적용해 새 asset 없이 구분
+- 사운드는 asset 조달 수단이 없어 M4의 최소 SFX 연결로 이월하고 event 훅만 마련
+- `tests/combat/` 28개 및 전체 71개 테스트 통과
 
 ### M3. Launcher부터 Ground Slam까지
 

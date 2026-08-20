@@ -1,26 +1,26 @@
-import {
-  Container,
-  Graphics,
-  Rectangle,
-  Sprite,
-  Texture,
-  TilingSprite,
-} from "pixi.js";
+import { Graphics, Rectangle, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { FighterSnapshot, SimulationSnapshot } from "../sim/world/world";
+import type { SimEvent } from "../sim/world/sim-event";
 import type { BattleAssets } from "./assets/battle-assets";
-import { actorGroundSortKey } from "./actors/ground-sort";
 import {
   DIRECTIONAL_IDLE_DIRECTIONS,
   DIRECTIONAL_IDLE_FRAME_COUNT,
   DIRECTIONAL_IDLE_SHEET_SIZE,
   directionalIdleFrameAddress,
-  resolveDirectionalIdleFrameAddress,
 } from "./actors/directional-idle";
+import {
+  ENEMY_PALETTE,
+  FighterView,
+  MECH_FEET_ANCHOR_Y,
+  PLAYER_PALETTE,
+} from "./actors/fighter-view";
 import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
+import { CameraShake } from "./camera/camera-shake";
 import { SmoothCamera } from "./camera/smooth-camera";
+import { DebugOverlay, type DebugLayerName } from "./debug/debug-overlay";
+import { ImpactEffects } from "./effects/impact-effects";
 import type { StageLayers } from "./stage-layers";
 
-const MECH_FEET_ANCHOR_Y = 228 / 256;
 const AFTERIMAGE_COUNT = 5;
 const AFTERIMAGE_LIFETIME_SECONDS = 0.2;
 const AFTERIMAGE_INTERVAL_SECONDS = 0.035;
@@ -50,7 +50,7 @@ function createDirectionalIdleTextures(sheet: Texture): readonly Texture[] {
 
       return new Texture({
         frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
-        label: `Player idle ${direction} ${column + 1}`,
+        label: `Mech idle ${direction} ${column + 1}`,
         source: sheet.source,
       });
     },
@@ -75,14 +75,6 @@ function createArenaBoundary(centerX: number, centerY: number, radius: number): 
     .moveTo(centerX, centerY - radius)
     .lineTo(centerX, centerY + radius)
     .stroke({ color: 0x76cbd0, width: 1, alpha: 0.1 });
-}
-
-function createGroundShadow(): Graphics {
-  return new Graphics()
-    .ellipse(0, 0, 60, 16)
-    .fill({ color: 0x000000, alpha: 0.48 })
-    .ellipse(0, -1, 36, 8)
-    .fill({ color: 0x071017, alpha: 0.52 });
 }
 
 function createTargetGroundMarker(): Graphics {
@@ -135,15 +127,16 @@ export class BattleScene {
   private readonly floor: TilingSprite;
   private readonly floorWash: Graphics;
   private readonly arenaBoundary: Graphics;
-  private readonly playerShadow = createGroundShadow();
-  private readonly playerRoot = new Container({ label: "Player fighter view" });
-  private readonly player: Sprite;
-  private readonly playerIdleTextures: readonly Texture[];
+  private readonly playerView: FighterView;
+  private readonly enemyView: FighterView;
   private readonly afterimages: Afterimage[];
   private readonly boostTrail = createBoostTrail();
   private readonly targetGround = createTargetGroundMarker();
   private readonly targetReticle = createTargetReticle();
+  private readonly impacts: ImpactEffects;
+  private readonly debug: DebugOverlay;
   private readonly camera = new SmoothCamera(8);
+  private readonly shake = new CameraShake();
   private readonly arenaCenter: Readonly<{ x: number; y: number }>;
   private readonly arenaRadius: number;
   private readonly maximumCameraLookAhead: number;
@@ -160,22 +153,12 @@ export class BattleScene {
     this.arenaCenter = { ...initialSnapshot.arena.center };
     this.arenaRadius = initialSnapshot.arena.radius;
     this.maximumCameraLookAhead = initialSnapshot.player.dashSpeed * 0.075;
-    this.playerIdleTextures = createDirectionalIdleTextures(assets.playerMechIdle);
-    const initialFrame = resolveDirectionalIdleFrameAddress(
-      initialSnapshot.player.facing,
-      initialSnapshot.tick,
-      initialSnapshot.player.state,
-    );
-    const initialTexture = this.requirePlayerIdleTexture(
-      initialFrame.row,
-      initialFrame.column,
-    );
 
-    this.floor = new TilingSprite({
-      texture: assets.hangarFloor,
-      width: 1,
-      height: 1,
-    });
+    const idleTextures = createDirectionalIdleTextures(assets.playerMechIdle);
+    this.playerView = new FighterView(layers, idleTextures, PLAYER_PALETTE, "Player mech");
+    this.enemyView = new FighterView(layers, idleTextures, ENEMY_PALETTE, "Enemy mech");
+
+    this.floor = new TilingSprite({ texture: assets.hangarFloor, width: 1, height: 1 });
     this.floor.tileScale.set(0.82);
     this.floor.tint = 0xc2d0d8;
     this.floor.label = "Hangar floor";
@@ -190,16 +173,10 @@ export class BattleScene {
     );
     this.arenaBoundary.label = "Arena movement boundary";
 
-    this.player = new Sprite({
-      texture: initialTexture,
-      anchor: { x: 0.5, y: MECH_FEET_ANCHOR_Y },
-    });
-    this.player.label = "Player mech";
-    this.playerRoot.addChild(this.player);
-
+    const firstTexture = this.playerView.texture;
     this.afterimages = Array.from({ length: AFTERIMAGE_COUNT }, (_, index) => {
       const sprite = new Sprite({
-        texture: initialTexture,
+        texture: firstTexture,
         anchor: { x: 0.5, y: MECH_FEET_ANCHOR_Y },
       });
       sprite.label = `Dash afterimage ${index + 1}`;
@@ -209,7 +186,6 @@ export class BattleScene {
     });
 
     this.background.label = "Arena backdrop";
-    this.playerShadow.label = "Player ground shadow";
     this.boostTrail.label = "Player boost trail";
     this.targetGround.label = "Target ground marker";
     this.targetReticle.label = "Target lock reticle";
@@ -217,11 +193,34 @@ export class BattleScene {
     layers.background.addChild(this.background);
     layers.arenaGround.addChild(this.floor, this.floorWash, this.arenaBoundary);
     layers.groundDecals.addChild(this.targetGround);
-    layers.shadows.addChild(this.playerShadow);
-    layers.actors.addChild(...this.afterimages.map(({ sprite }) => sprite), this.playerRoot);
+    layers.actors.addChild(...this.afterimages.map(({ sprite }) => sprite));
     layers.effects.addChild(this.boostTrail, this.targetReticle);
 
+    this.impacts = new ImpactEffects(layers.effects);
+    this.debug = new DebugOverlay(layers.debug);
+
     this.present(initialSnapshot, 0);
+  }
+
+  toggleDebugLayer(layer: DebugLayerName): boolean {
+    return this.debug.toggle(layer);
+  }
+
+  isDebugLayerEnabled(layer: DebugLayerName): boolean {
+    return this.debug.isEnabled(layer);
+  }
+
+  /** Consumes simulation events. The scene never reads combat state directly. */
+  consume(events: readonly SimEvent[]): void {
+    for (const event of events) {
+      if (event.type !== "hit-landed") {
+        continue;
+      }
+
+      this.impacts.spawn(event);
+      this.enemyView.flash();
+      this.shake.add(0.22 + Math.min(event.severity, 1.2) * 0.28);
+    }
   }
 
   resize(width: number, height: number): void {
@@ -233,45 +232,24 @@ export class BattleScene {
   }
 
   present(snapshot: SimulationSnapshot, deltaSeconds: number): void {
-    const { player } = snapshot;
-    const { position, velocity } = player.body;
     const safeDelta = Math.min(Math.max(deltaSeconds, 0), 0.05);
+    const { player } = snapshot;
 
-    const speedRatio = Math.min(
-      Math.hypot(velocity.x, velocity.y) / player.maximumSpeed,
-      1.5,
-    );
-    const dashStretch = player.state === "dashing" ? 1.06 : 1;
-    this.playerRoot.position.set(position.x, position.y);
-    this.playerRoot.zIndex = actorGroundSortKey(player);
-    const idleFrame = resolveDirectionalIdleFrameAddress(
-      player.facing,
-      snapshot.tick,
-      player.state,
-    );
-    this.player.texture = this.requirePlayerIdleTexture(
-      idleFrame.row,
-      idleFrame.column,
-    );
-    this.player.position.y = -position.elevation;
-    this.player.rotation = (velocity.x / player.dashSpeed) * 0.07;
-    this.player.scale.set(
-      dashStretch,
-      1 - Math.min(speedRatio, 1) * 0.025,
-    );
-
-    this.playerShadow.position.set(position.x, position.y + 3);
-    const elevationFade = Math.max(0.35, 1 - position.elevation / 280);
-    this.playerShadow.alpha = elevationFade;
+    this.playerView.present(player, snapshot.tick, safeDelta);
+    this.enemyView.present(snapshot.enemy, snapshot.tick, safeDelta);
 
     this.presentDashEffects(snapshot, safeDelta);
     this.presentTarget(snapshot);
 
-    const cameraTarget = {
-      x: position.x + velocity.x * 0.075,
-      y: position.y + velocity.y * 0.045,
-    };
-    this.camera.follow(cameraTarget, safeDelta);
+    this.impacts.advance(safeDelta);
+    this.shake.advance(safeDelta);
+    this.debug.present(snapshot);
+
+    const { position, velocity } = player.body;
+    this.camera.follow(
+      { x: position.x + velocity.x * 0.075, y: position.y + velocity.y * 0.045 },
+      safeDelta,
+    );
     this.applyCameraTransform();
   }
 
@@ -288,7 +266,7 @@ export class BattleScene {
     this.afterimageAccumulator += deltaSeconds;
     if (dashing && this.afterimageAccumulator >= AFTERIMAGE_INTERVAL_SECONDS) {
       this.afterimageAccumulator %= AFTERIMAGE_INTERVAL_SECONDS;
-      this.emitAfterimage(snapshot.player);
+      this.emitAfterimage(player);
     }
 
     for (const afterimage of this.afterimages) {
@@ -322,7 +300,7 @@ export class BattleScene {
     afterimage.ageSeconds = 0;
     afterimage.sprite.visible = true;
     afterimage.sprite.alpha = 0.34;
-    afterimage.sprite.texture = this.player.texture;
+    afterimage.sprite.texture = this.playerView.texture;
     afterimage.sprite.position.set(position.x, position.y - position.elevation);
     afterimage.sprite.rotation = (velocity.x / player.dashSpeed) * 0.07;
     afterimage.sprite.scale.set(1.04, 0.98);
@@ -330,19 +308,9 @@ export class BattleScene {
     this.afterimageCursor = (this.afterimageCursor + 1) % this.afterimages.length;
   }
 
-  private requirePlayerIdleTexture(row: number, column: number): Texture {
-    const texture =
-      this.playerIdleTextures[row * DIRECTIONAL_IDLE_FRAME_COUNT + column];
-    if (texture === undefined) {
-      throw new RangeError(`Player idle texture is missing at row ${row}, column ${column}.`);
-    }
-
-    return texture;
-  }
-
   private presentTarget(snapshot: SimulationSnapshot): void {
-    const locked = snapshot.player.lockedTargetId === snapshot.target.id;
-    const target = snapshot.target.position;
+    const locked = snapshot.player.lockedTargetId === snapshot.enemy.id;
+    const target = snapshot.enemy.body.position;
     this.targetGround.position.set(target.x, target.y + 2);
     this.targetGround.alpha = locked ? 1 : 0.44;
     this.targetReticle.position.set(target.x, target.y - 78 - target.elevation);
@@ -352,25 +320,22 @@ export class BattleScene {
 
   private applyCameraTransform(): void {
     const camera = this.camera.position;
+    const shake = this.shake.offset;
     const scale = this.layout.actorScale;
     this.layers.world.position.set(
-      this.layout.cameraAnchorX - camera.x * scale,
-      this.layout.cameraAnchorY - camera.y * scale,
+      this.layout.cameraAnchorX - camera.x * scale + shake.x,
+      this.layout.cameraAnchorY - camera.y * scale + shake.y,
     );
   }
 
   private resizeWorldFloor(): void {
     const scale = this.layout.actorScale;
     const horizontalViewportReach =
-      Math.max(
-        this.layout.cameraAnchorX,
-        this.layout.width - this.layout.cameraAnchorX,
-      ) / scale;
+      Math.max(this.layout.cameraAnchorX, this.layout.width - this.layout.cameraAnchorX) /
+      scale;
     const verticalViewportReach =
-      Math.max(
-        this.layout.cameraAnchorY,
-        this.layout.height - this.layout.cameraAnchorY,
-      ) / scale;
+      Math.max(this.layout.cameraAnchorY, this.layout.height - this.layout.cameraAnchorY) /
+      scale;
     const halfWidth =
       this.arenaRadius + this.maximumCameraLookAhead + horizontalViewportReach + 64;
     const halfHeight =

@@ -23,7 +23,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "demo:m2": "node scripts/m2-combat-demo.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.19.0"

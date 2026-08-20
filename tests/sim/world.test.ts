@@ -168,11 +168,11 @@ describe("SimulationWorld", () => {
 
     world.step([lock]);
     expect(world.getFrame().current.player.lockedTargetId).toBe(
-      HANGAR_TEST_BATTLE.target.id,
+      HANGAR_TEST_BATTLE.enemy.id,
     );
     world.step([]);
     expect(world.getFrame().current.player.lockedTargetId).toBe(
-      HANGAR_TEST_BATTLE.target.id,
+      HANGAR_TEST_BATTLE.enemy.id,
     );
     world.step([lock]);
     expect(world.getFrame().current.player.lockedTargetId).toBeNull();

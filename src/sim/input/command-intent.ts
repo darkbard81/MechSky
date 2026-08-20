@@ -12,9 +12,16 @@ export interface DashIntent {
   readonly fighterId: EntityId;
 }
 
+export interface AttackIntent {
+  readonly type: "attack";
+  readonly fighterId: EntityId;
+  /** Attack button index. The slice only uses slot 0, the melee chain. */
+  readonly slot: number;
+}
+
 export interface LockTargetIntent {
   readonly type: "lock-target";
   readonly fighterId: EntityId;
 }
 
-export type CommandIntent = MoveIntent | DashIntent | LockTargetIntent;
+export type CommandIntent = MoveIntent | DashIntent | AttackIntent | LockTargetIntent;

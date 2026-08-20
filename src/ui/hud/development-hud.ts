@@ -1,7 +1,8 @@
 import type { PlatformKind } from "../../platform/platform";
 import type { InputControl, InputSource } from "../../input/player-input";
 import type { Vector2 } from "../../sim/math/vector2";
-import type { FighterState, WorldPosition } from "../../sim/world/entity";
+import type { ActionKind, FighterState, WorldPosition } from "../../sim/world/entity";
+import type { AttackPhase } from "../../sim/combat/attack-timeline";
 
 export interface DevelopmentHudElements {
   readonly bootOverlay: HTMLElement;
@@ -18,13 +19,25 @@ export interface DevelopmentHudElements {
   readonly dashCooldown: HTMLElement;
   readonly targetLock: HTMLElement;
   readonly inputSource: HTMLElement;
+  readonly combatAction: HTMLElement;
+  readonly comboCounter: HTMLElement;
+  readonly enemyHealth: HTMLElement;
+  readonly enemyHealthBar: HTMLElement;
   readonly platformKind: HTMLElement;
   readonly runtimeMessage: HTMLElement;
 }
 
 export interface DevelopmentHudState {
+  readonly actionFrame: number;
+  readonly actionDuration: number;
+  readonly actionKind: ActionKind;
   readonly alpha: number;
+  readonly attackId: string | null;
+  readonly attackPhase: AttackPhase | null;
+  readonly comboHits: number;
   readonly dashCooldownTicks: number;
+  readonly enemyHealth: number;
+  readonly enemyMaximumHealth: number;
   readonly fighterState: FighterState;
   readonly inputControl: InputControl;
   readonly inputSource: InputSource;
@@ -59,7 +72,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "WASD·방향키·NumPad 또는 왼쪽 스틱으로 이동하고 Shift/B로 Dash, Tab/LB로 Lock합니다.";
+      "이동은 WASD·방향키·NumPad 또는 왼쪽 스틱, J/A로 공격, Shift/B로 Dash, Tab/LB로 Lock합니다. J를 다시 눌러 2타로 잇습니다.";
   }
 
   failed(message: string): void {
@@ -92,9 +105,36 @@ export class DevelopmentHud {
     this.elements.targetLock.textContent = state.locked ? "LOCKED" : "SEARCH";
     this.elements.targetLock.dataset["locked"] = state.locked.toString();
     this.elements.inputSource.textContent = `${state.inputSource.toUpperCase()} · ${state.inputControl}`;
+    this.presentCombat(state);
+  }
+
+  private presentCombat(state: DevelopmentHudState): void {
+    this.elements.combatAction.textContent = describeAction(state);
+    this.elements.comboCounter.textContent = state.comboHits.toString();
+    this.elements.comboCounter.dataset["active"] = (state.comboHits > 0).toString();
+    this.elements.enemyHealth.textContent = `${state.enemyHealth} / ${state.enemyMaximumHealth}`;
+
+    const ratio =
+      state.enemyMaximumHealth === 0
+        ? 0
+        : Math.min(1, Math.max(0, state.enemyHealth / state.enemyMaximumHealth));
+    this.elements.enemyHealthBar.style.transform = `scaleX(${ratio})`;
   }
 
   showMessage(message: string): void {
     this.elements.runtimeMessage.textContent = message;
   }
+}
+
+function describeAction(state: DevelopmentHudState): string {
+  if (state.actionKind === "hitstun") {
+    return "HITSTUN";
+  }
+
+  if (state.actionKind !== "attack" || state.attackId === null) {
+    return "NONE";
+  }
+
+  const phase = state.attackPhase === null ? "" : ` ${state.attackPhase.toUpperCase()}`;
+  return `${state.attackId.toUpperCase()}${phase} ${state.actionFrame}/${state.actionDuration}`;
 }

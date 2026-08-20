@@ -56,5 +56,10 @@ export function interpolateSimulationFrame(
       frame.current.player,
       normalizedAlpha,
     ),
+    enemy: interpolateFighter(
+      frame.previous.enemy,
+      frame.current.enemy,
+      normalizedAlpha,
+    ),
   };
 }

@@ -467,3 +467,24 @@ kbd {
     scroll-behavior: auto !important;
   }
 }
+
+.health-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  border: 1px solid rgba(120, 200, 210, 0.35);
+  background: rgba(6, 18, 24, 0.75);
+  overflow: hidden;
+}
+
+.health-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff7a5c, #ffc36b);
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 90ms linear;
+}
+
+#combo-counter[data-active="true"] {
+  color: #ffd166;
+}

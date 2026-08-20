@@ -1,3 +1,14 @@
+import type { ActiveHitbox, AttackLibrary } from "../combat/attack-definition";
+import { attackDuration } from "../combat/attack-definition";
+import {
+  advanceAction,
+  beginAttack,
+  currentHitbox,
+  requireAttack,
+  resolveAttackStart,
+} from "../combat/attack-system";
+import { HitResolver } from "../combat/hit-system";
+import { resolveAttackPhase, type AttackPhase } from "../combat/attack-timeline";
 import type { CommandIntent } from "../input/command-intent";
 import {
   clampVectorMagnitude,
@@ -7,14 +18,17 @@ import {
   ZERO_VECTOR,
   type Vector2,
 } from "../math/vector2";
-import type { BattleRecipe } from "./battle-recipe";
-import type {
-  Body,
-  EntityId,
-  Fighter,
-  FighterState,
-  WorldPosition,
+import type { BattleRecipe, FighterRecipe } from "./battle-recipe";
+import {
+  createIdleAction,
+  type ActionKind,
+  type Body,
+  type EntityId,
+  type Fighter,
+  type FighterState,
+  type WorldPosition,
 } from "./entity";
+import type { SimEvent } from "./sim-event";
 
 export const SIMULATION_HZ = 60;
 const STEP_SECONDS = 1 / SIMULATION_HZ;
@@ -31,6 +45,15 @@ export interface FighterSnapshot {
   readonly body: BodySnapshot;
   readonly facing: Readonly<Vector2>;
   readonly state: FighterState;
+  readonly health: number;
+  readonly maximumHealth: number;
+  readonly actionKind: ActionKind;
+  readonly attackId: string | null;
+  readonly actionFrame: number;
+  readonly actionDuration: number;
+  readonly attackPhase: AttackPhase | null;
+  readonly hitStopFrames: number;
+  readonly comboHits: number;
   readonly maximumSpeed: number;
   readonly dashSpeed: number;
   readonly dashCooldownTicks: number;
@@ -46,10 +69,9 @@ export interface SimulationSnapshot {
     readonly radius: number;
   };
   readonly player: FighterSnapshot;
-  readonly target: {
-    readonly id: EntityId;
-    readonly position: Readonly<WorldPosition>;
-  };
+  readonly enemy: FighterSnapshot;
+  /** Live attack hitboxes this frame, for debug overlays only. */
+  readonly hitboxes: readonly Readonly<ActiveHitbox>[];
 }
 
 export interface SimulationFrame {
@@ -58,44 +80,32 @@ export interface SimulationFrame {
 }
 
 interface TickCommands {
+  readonly attackRequested: boolean;
   readonly dashRequested: boolean;
   readonly lockRequested: boolean;
   readonly move: Vector2;
 }
 
-function validateRecipe(recipe: BattleRecipe): void {
-  const finiteCoordinates = [
-    recipe.arena.center.x,
-    recipe.arena.center.y,
-    recipe.player.spawn.x,
-    recipe.player.spawn.y,
-    recipe.player.spawn.elevation,
-    recipe.target.position.x,
-    recipe.target.position.y,
-    recipe.target.position.elevation,
-  ];
+function validateFighterRecipe(recipe: FighterRecipe, label: string, arenaRadius: number): void {
+  const coordinates = [recipe.spawn.x, recipe.spawn.y, recipe.spawn.elevation];
 
-  if (finiteCoordinates.some((value) => !Number.isFinite(value))) {
-    throw new RangeError("Battle positions must use finite coordinates.");
+  if (coordinates.some((value) => !Number.isFinite(value))) {
+    throw new RangeError(`${label} spawn must use finite coordinates.`);
   }
 
-  if (!Number.isFinite(recipe.arena.radius) || recipe.arena.radius <= 0) {
-    throw new RangeError("Arena radius must be greater than zero.");
+  if (!Number.isFinite(recipe.radius) || recipe.radius <= 0 || recipe.radius >= arenaRadius) {
+    throw new RangeError(`${label} radius must fit inside the arena.`);
   }
 
-  if (
-    !Number.isFinite(recipe.player.radius) ||
-    recipe.player.radius <= 0 ||
-    recipe.player.radius >= recipe.arena.radius
-  ) {
-    throw new RangeError("Player radius must fit inside the arena.");
+  if (!Number.isFinite(recipe.bodyHeight) || recipe.bodyHeight <= 0) {
+    throw new RangeError(`${label} body height must be greater than zero.`);
   }
 
-  if (!Number.isFinite(recipe.player.bodyHeight) || recipe.player.bodyHeight <= 0) {
-    throw new RangeError("Player body height must be greater than zero.");
+  if (!Number.isFinite(recipe.health) || recipe.health <= 0) {
+    throw new RangeError(`${label} health must be greater than zero.`);
   }
 
-  const movement = recipe.player.movement;
+  const movement = recipe.movement;
   const positiveValues = [
     movement.acceleration,
     movement.deceleration,
@@ -104,11 +114,11 @@ function validateRecipe(recipe: BattleRecipe): void {
   ];
 
   if (positiveValues.some((value) => !Number.isFinite(value) || value <= 0)) {
-    throw new RangeError("Movement speeds and acceleration must be positive.");
+    throw new RangeError(`${label} movement speeds and acceleration must be positive.`);
   }
 
   if (movement.dashSpeed <= movement.maximumSpeed) {
-    throw new RangeError("Dash speed must be greater than ordinary movement speed.");
+    throw new RangeError(`${label} dash speed must exceed ordinary movement speed.`);
   }
 
   if (
@@ -117,32 +127,63 @@ function validateRecipe(recipe: BattleRecipe): void {
     !Number.isInteger(movement.dashCooldownTicks) ||
     movement.dashCooldownTicks < movement.dashDurationTicks
   ) {
-    throw new RangeError("Dash duration and cooldown must be valid tick counts.");
-  }
-
-  const spawnDistance = Math.hypot(
-    recipe.player.spawn.x - recipe.arena.center.x,
-    recipe.player.spawn.y - recipe.arena.center.y,
-  );
-  if (spawnDistance > recipe.arena.radius - recipe.player.radius) {
-    throw new RangeError("Player spawn must keep the entire body inside the arena.");
-  }
-
-  const targetDistance = Math.hypot(
-    recipe.target.position.x - recipe.arena.center.x,
-    recipe.target.position.y - recipe.arena.center.y,
-  );
-  if (targetDistance > recipe.arena.radius) {
-    throw new RangeError("Target position must be inside the arena.");
+    throw new RangeError(`${label} dash duration and cooldown must be valid tick counts.`);
   }
 }
 
-function createBody(recipe: BattleRecipe): Body {
+function validateRecipe(recipe: BattleRecipe): void {
+  if (!Number.isFinite(recipe.arena.center.x) || !Number.isFinite(recipe.arena.center.y)) {
+    throw new RangeError("Arena center must use finite coordinates.");
+  }
+
+  if (!Number.isFinite(recipe.arena.radius) || recipe.arena.radius <= 0) {
+    throw new RangeError("Arena radius must be greater than zero.");
+  }
+
+  validateFighterRecipe(recipe.player, "Player", recipe.arena.radius);
+  validateFighterRecipe(recipe.enemy, "Enemy", recipe.arena.radius);
+
+  if (recipe.player.id === recipe.enemy.id) {
+    throw new RangeError("Player and enemy must use distinct entity ids.");
+  }
+
+  for (const fighter of [recipe.player, recipe.enemy]) {
+    const distance = Math.hypot(
+      fighter.spawn.x - recipe.arena.center.x,
+      fighter.spawn.y - recipe.arena.center.y,
+    );
+
+    if (distance > recipe.arena.radius - fighter.radius) {
+      throw new RangeError("Every spawn must keep the whole body inside the arena.");
+    }
+  }
+
+  const combat = recipe.combat;
+  if (
+    !Number.isInteger(combat.inputBufferFrames) ||
+    combat.inputBufferFrames < 0 ||
+    !Number.isInteger(combat.comboResetFrames) ||
+    combat.comboResetFrames < 1
+  ) {
+    throw new RangeError("Combat buffer and combo reset windows must be valid frame counts.");
+  }
+
+  for (const chain of Object.values(combat.library.chains)) {
+    for (const attackId of chain.attacks) {
+      requireAttack(combat.library, attackId);
+    }
+  }
+}
+
+function copyFighterRecipe(recipe: FighterRecipe): FighterRecipe {
   return {
-    position: { ...recipe.player.spawn },
-    velocity: { ...ZERO_VECTOR },
-    radius: recipe.player.radius,
-    bodyHeight: recipe.player.bodyHeight,
+    id: recipe.id,
+    spawn: { ...recipe.spawn },
+    radius: recipe.radius,
+    bodyHeight: recipe.bodyHeight,
+    health: recipe.health,
+    chainId: recipe.chainId,
+    movement: { ...recipe.movement },
   };
 }
 
@@ -152,32 +193,41 @@ function copyRecipe(recipe: BattleRecipe): BattleRecipe {
       center: { ...recipe.arena.center },
       radius: recipe.arena.radius,
     },
-    player: {
-      id: recipe.player.id,
-      spawn: { ...recipe.player.spawn },
-      radius: recipe.player.radius,
-      bodyHeight: recipe.player.bodyHeight,
-      movement: { ...recipe.player.movement },
-    },
-    target: {
-      id: recipe.target.id,
-      position: { ...recipe.target.position },
-    },
+    player: copyFighterRecipe(recipe.player),
+    enemy: copyFighterRecipe(recipe.enemy),
+    combat: { ...recipe.combat },
   };
 }
 
-function createFighter(recipe: BattleRecipe): Fighter {
+function createBody(recipe: FighterRecipe): Body {
   return {
-    id: recipe.player.id,
+    position: { ...recipe.spawn },
+    velocity: { ...ZERO_VECTOR },
+    radius: recipe.radius,
+    bodyHeight: recipe.bodyHeight,
+  };
+}
+
+function createFighter(recipe: FighterRecipe, facing: Vector2): Fighter {
+  return {
+    id: recipe.id,
     body: createBody(recipe),
-    movement: { ...recipe.player.movement },
-    facing: { x: 1, y: 0 },
-    dashDirection: { x: 1, y: 0 },
+    movement: { ...recipe.movement },
+    maximumHealth: recipe.health,
+    health: recipe.health,
+    facing: { ...facing },
+    dashDirection: { ...facing },
     dashEndExclusiveTick: 0,
     dashReadyTick: 0,
     dashSequence: 0,
     lockedTargetId: null,
     state: "idle",
+    action: createIdleAction(),
+    hitStopFrames: 0,
+    attackBufferFrames: 0,
+    comboHits: 0,
+    comboResetFrames: 0,
+    chainId: recipe.chainId,
   };
 }
 
@@ -185,6 +235,7 @@ function reduceCommands(
   intents: readonly CommandIntent[],
   fighterId: EntityId,
 ): TickCommands {
+  let attackRequested = false;
   let dashRequested = false;
   let lockRequested = false;
   let move: Vector2 = { ...ZERO_VECTOR };
@@ -204,13 +255,16 @@ function reduceCommands(
       case "dash":
         dashRequested = true;
         break;
+      case "attack":
+        attackRequested = true;
+        break;
       case "lock-target":
         lockRequested = true;
         break;
     }
   }
 
-  return { dashRequested, lockRequested, move };
+  return { attackRequested, dashRequested, lockRequested, move };
 }
 
 function integrateBody(body: Body): void {
@@ -241,41 +295,23 @@ function constrainToArena(body: Body, recipe: BattleRecipe): boolean {
   return true;
 }
 
-function snapshotFighter(fighter: Fighter, tick: number): FighterSnapshot {
-  return {
-    id: fighter.id,
-    body: {
-      position: { ...fighter.body.position },
-      velocity: { ...fighter.body.velocity },
-      radius: fighter.body.radius,
-      bodyHeight: fighter.body.bodyHeight,
-    },
-    facing: { ...fighter.facing },
-    state: fighter.state,
-    maximumSpeed: fighter.movement.maximumSpeed,
-    dashSpeed: fighter.movement.dashSpeed,
-    dashCooldownTicks: Math.max(0, fighter.dashReadyTick - tick),
-    dashSequence: fighter.dashSequence,
-    lockedTargetId: fighter.lockedTargetId,
-  };
-}
-
-function freezeSnapshot(snapshot: SimulationSnapshot): SimulationSnapshot {
-  Object.freeze(snapshot.arena.center);
-  Object.freeze(snapshot.arena);
-  Object.freeze(snapshot.player.body.position);
-  Object.freeze(snapshot.player.body.velocity);
-  Object.freeze(snapshot.player.body);
-  Object.freeze(snapshot.player.facing);
-  Object.freeze(snapshot.player);
-  Object.freeze(snapshot.target.position);
-  Object.freeze(snapshot.target);
-  return Object.freeze(snapshot);
+function decelerate(fighter: Fighter, rate: number): void {
+  const velocity = moveVectorToward(
+    fighter.body.velocity,
+    ZERO_VECTOR,
+    rate * STEP_SECONDS,
+  );
+  fighter.body.velocity.x = velocity.x;
+  fighter.body.velocity.y = velocity.y;
 }
 
 export class SimulationWorld {
-  private readonly fighter: Fighter;
+  private readonly player: Fighter;
+  private readonly enemy: Fighter;
   private readonly recipe: BattleRecipe;
+  private readonly library: AttackLibrary;
+  private readonly hits = new HitResolver();
+  private events: SimEvent[] = [];
   private tick = 0;
   private previousSnapshot: SimulationSnapshot;
   private currentSnapshot: SimulationSnapshot;
@@ -283,7 +319,15 @@ export class SimulationWorld {
   constructor(recipe: BattleRecipe) {
     validateRecipe(recipe);
     this.recipe = copyRecipe(recipe);
-    this.fighter = createFighter(this.recipe);
+    this.library = this.recipe.combat.library;
+
+    const toEnemy = normalizeOrZero({
+      x: this.recipe.enemy.spawn.x - this.recipe.player.spawn.x,
+      y: this.recipe.enemy.spawn.y - this.recipe.player.spawn.y,
+    });
+    this.player = createFighter(this.recipe.player, toEnemy.x === 0 && toEnemy.y === 0 ? { x: 1, y: 0 } : toEnemy);
+    this.enemy = createFighter(this.recipe.enemy, { x: -toEnemy.x, y: -toEnemy.y });
+
     this.currentSnapshot = this.createSnapshot(0);
     this.previousSnapshot = this.createSnapshot(0);
   }
@@ -292,17 +336,16 @@ export class SimulationWorld {
     this.previousSnapshot = this.currentSnapshot;
 
     const tick = this.tick + 1;
-    const commands = reduceCommands(intents, this.fighter.id);
-    this.updateLock(commands);
-    this.updateMovement(commands, tick);
-    integrateBody(this.fighter.body);
+    const commands = reduceCommands(intents, this.player.id);
 
-    if (constrainToArena(this.fighter.body, this.recipe)) {
-      this.fighter.dashEndExclusiveTick = Math.min(
-        this.fighter.dashEndExclusiveTick,
-        tick + 1,
-      );
-    }
+    this.updateAttackBuffer(commands);
+    this.updateLock(commands);
+    this.startBufferedAttack();
+    this.updateMovement(commands, tick);
+    this.moveFighters();
+    this.resolveHits();
+    this.advanceActions();
+    this.updateCombo();
 
     this.tick = tick;
     this.currentSnapshot = this.createSnapshot(tick);
@@ -315,61 +358,241 @@ export class SimulationWorld {
     };
   }
 
+  /** Events produced since the last drain. Renderer and UI consume these. */
+  drainEvents(): readonly SimEvent[] {
+    const drained = this.events;
+    this.events = [];
+    return drained;
+  }
+
+  private updateAttackBuffer(commands: TickCommands): void {
+    if (commands.attackRequested) {
+      this.player.attackBufferFrames = this.recipe.combat.inputBufferFrames;
+      return;
+    }
+
+    if (this.player.attackBufferFrames > 0) {
+      this.player.attackBufferFrames -= 1;
+    }
+  }
+
   private updateLock(commands: TickCommands): void {
     if (!commands.lockRequested) {
       return;
     }
 
-    this.fighter.lockedTargetId =
-      this.fighter.lockedTargetId === null ? this.recipe.target.id : null;
+    this.player.lockedTargetId =
+      this.player.lockedTargetId === null ? this.enemy.id : null;
+  }
+
+  private startBufferedAttack(): void {
+    const start = resolveAttackStart(this.player, this.library);
+
+    if (start === null) {
+      return;
+    }
+
+    const definition = requireAttack(this.library, start.attackId);
+    beginAttack(this.player, start);
+
+    if (this.player.lockedTargetId === this.enemy.id) {
+      const toTarget = normalizeOrZero({
+        x: this.enemy.body.position.x - this.player.body.position.x,
+        y: this.enemy.body.position.y - this.player.body.position.y,
+      });
+      if (toTarget.x !== 0 || toTarget.y !== 0) {
+        this.player.facing = toTarget;
+      }
+    }
+
+    this.player.body.velocity.x = this.player.facing.x * definition.forwardImpulse;
+    this.player.body.velocity.y = this.player.facing.y * definition.forwardImpulse;
+
+    this.events.push({
+      type: "attack-started",
+      attackId: definition.id,
+      attackerId: this.player.id,
+      chainIndex: start.chainIndex,
+    });
   }
 
   private updateMovement(commands: TickCommands, tick: number): void {
+    this.updateEnemyMovement();
+
+    if (this.player.hitStopFrames > 0) {
+      return;
+    }
+
+    if (this.player.action.kind === "hitstun") {
+      decelerate(this.player, this.recipe.combat.hitstunFriction);
+      return;
+    }
+
+    if (this.player.action.kind === "attack") {
+      decelerate(this.player, this.player.movement.deceleration);
+      return;
+    }
+
     const moveMagnitude = vectorLength(commands.move);
     const hasMoveInput = moveMagnitude > Number.EPSILON;
 
-    if (commands.dashRequested && tick >= this.fighter.dashReadyTick) {
-      this.fighter.dashDirection = hasMoveInput
+    if (commands.dashRequested && tick >= this.player.dashReadyTick) {
+      this.player.dashDirection = hasMoveInput
         ? normalizeOrZero(commands.move)
-        : { ...this.fighter.facing };
-      this.fighter.dashEndExclusiveTick =
-        tick + this.fighter.movement.dashDurationTicks;
-      this.fighter.dashReadyTick = tick + this.fighter.movement.dashCooldownTicks;
-      this.fighter.dashSequence += 1;
+        : { ...this.player.facing };
+      this.player.dashEndExclusiveTick = tick + this.player.movement.dashDurationTicks;
+      this.player.dashReadyTick = tick + this.player.movement.dashCooldownTicks;
+      this.player.dashSequence += 1;
     }
 
-    if (tick < this.fighter.dashEndExclusiveTick) {
-      this.fighter.facing = { ...this.fighter.dashDirection };
-      this.fighter.body.velocity.x =
-        this.fighter.dashDirection.x * this.fighter.movement.dashSpeed;
-      this.fighter.body.velocity.y =
-        this.fighter.dashDirection.y * this.fighter.movement.dashSpeed;
-      this.fighter.state = "dashing";
+    if (tick < this.player.dashEndExclusiveTick) {
+      this.player.facing = { ...this.player.dashDirection };
+      this.player.body.velocity.x = this.player.dashDirection.x * this.player.movement.dashSpeed;
+      this.player.body.velocity.y = this.player.dashDirection.y * this.player.movement.dashSpeed;
+      this.player.state = "dashing";
       return;
     }
 
     if (hasMoveInput) {
-      this.fighter.facing = normalizeOrZero(commands.move);
+      this.player.facing = normalizeOrZero(commands.move);
     }
 
     const targetVelocity = {
-      x: commands.move.x * this.fighter.movement.maximumSpeed,
-      y: commands.move.y * this.fighter.movement.maximumSpeed,
+      x: commands.move.x * this.player.movement.maximumSpeed,
+      y: commands.move.y * this.player.movement.maximumSpeed,
     };
     const rate = hasMoveInput
-      ? this.fighter.movement.acceleration
-      : this.fighter.movement.deceleration;
+      ? this.player.movement.acceleration
+      : this.player.movement.deceleration;
     const velocity = moveVectorToward(
-      this.fighter.body.velocity,
+      this.player.body.velocity,
       targetVelocity,
       rate * STEP_SECONDS,
     );
-    this.fighter.body.velocity.x = velocity.x;
-    this.fighter.body.velocity.y = velocity.y;
-    this.fighter.state = vectorLength(velocity) > 0.01 ? "moving" : "idle";
+    this.player.body.velocity.x = velocity.x;
+    this.player.body.velocity.y = velocity.y;
+    this.player.state = vectorLength(velocity) > 0.01 ? "moving" : "idle";
+  }
+
+  private updateEnemyMovement(): void {
+    if (this.enemy.hitStopFrames > 0) {
+      return;
+    }
+
+    const rate =
+      this.enemy.action.kind === "hitstun"
+        ? this.recipe.combat.hitstunFriction
+        : this.enemy.movement.deceleration;
+    decelerate(this.enemy, rate);
+
+    if (this.enemy.health === 0) {
+      this.enemy.state = "downed";
+    }
+  }
+
+  private moveFighters(): void {
+    for (const fighter of [this.player, this.enemy]) {
+      if (fighter.hitStopFrames > 0) {
+        continue;
+      }
+
+      integrateBody(fighter.body);
+
+      if (constrainToArena(fighter.body, this.recipe) && fighter === this.player) {
+        this.player.dashEndExclusiveTick = Math.min(
+          this.player.dashEndExclusiveTick,
+          this.tick + 2,
+        );
+      }
+    }
+  }
+
+  private resolveHits(): void {
+    const hitbox = currentHitbox(this.player, this.library);
+    const resolution = this.hits.resolve(this.player, hitbox, [this.enemy], this.library);
+
+    for (const event of resolution.events) {
+      this.events.push(event);
+    }
+
+    for (const targetId of resolution.defeatedIds) {
+      this.events.push({ type: "target-defeated", targetId });
+    }
+  }
+
+  private advanceActions(): void {
+    for (const fighter of [this.player, this.enemy]) {
+      const advance = advanceAction(fighter, this.library);
+
+      if (advance.attackFinished && !advance.attackConnected && advance.finishedAttackId !== null) {
+        this.events.push({
+          type: "attack-whiffed",
+          attackId: advance.finishedAttackId,
+          attackerId: fighter.id,
+        });
+      }
+
+      if (fighter.health === 0) {
+        fighter.state = "downed";
+      }
+    }
+  }
+
+  private updateCombo(): void {
+    if (this.player.comboHits === 0) {
+      return;
+    }
+
+    this.player.comboResetFrames += 1;
+
+    if (this.player.comboResetFrames >= this.recipe.combat.comboResetFrames) {
+      this.events.push({
+        type: "combo-ended",
+        attackerId: this.player.id,
+        hits: this.player.comboHits,
+      });
+      this.player.comboHits = 0;
+      this.player.comboResetFrames = 0;
+    }
+  }
+
+  private snapshotFighter(fighter: Fighter, tick: number): FighterSnapshot {
+    const definition =
+      fighter.action.kind === "attack" && fighter.action.attackId !== null
+        ? requireAttack(this.library, fighter.action.attackId)
+        : null;
+
+    return {
+      id: fighter.id,
+      body: {
+        position: { ...fighter.body.position },
+        velocity: { ...fighter.body.velocity },
+        radius: fighter.body.radius,
+        bodyHeight: fighter.body.bodyHeight,
+      },
+      facing: { ...fighter.facing },
+      state: fighter.state,
+      health: fighter.health,
+      maximumHealth: fighter.maximumHealth,
+      actionKind: fighter.action.kind,
+      attackId: fighter.action.attackId,
+      actionFrame: fighter.action.frame,
+      actionDuration: definition === null ? 0 : attackDuration(definition),
+      attackPhase:
+        definition === null ? null : resolveAttackPhase(definition, fighter.action.frame),
+      hitStopFrames: fighter.hitStopFrames,
+      comboHits: fighter.comboHits,
+      maximumSpeed: fighter.movement.maximumSpeed,
+      dashSpeed: fighter.movement.dashSpeed,
+      dashCooldownTicks: Math.max(0, fighter.dashReadyTick - tick),
+      dashSequence: fighter.dashSequence,
+      lockedTargetId: fighter.lockedTargetId,
+    };
   }
 
   private createSnapshot(tick: number): SimulationSnapshot {
+    const hitbox = currentHitbox(this.player, this.library);
+
     return freezeSnapshot({
       tick,
       elapsedSeconds: tick / SIMULATION_HZ,
@@ -377,11 +600,26 @@ export class SimulationWorld {
         center: { ...this.recipe.arena.center },
         radius: this.recipe.arena.radius,
       },
-      player: snapshotFighter(this.fighter, tick),
-      target: {
-        id: this.recipe.target.id,
-        position: { ...this.recipe.target.position },
-      },
+      player: this.snapshotFighter(this.player, tick),
+      enemy: this.snapshotFighter(this.enemy, tick),
+      hitboxes: hitbox === null ? [] : [Object.freeze({ ...hitbox })],
     });
   }
+}
+
+function freezeFighterSnapshot(snapshot: FighterSnapshot): void {
+  Object.freeze(snapshot.body.position);
+  Object.freeze(snapshot.body.velocity);
+  Object.freeze(snapshot.body);
+  Object.freeze(snapshot.facing);
+  Object.freeze(snapshot);
+}
+
+function freezeSnapshot(snapshot: SimulationSnapshot): SimulationSnapshot {
+  Object.freeze(snapshot.arena.center);
+  Object.freeze(snapshot.arena);
+  freezeFighterSnapshot(snapshot.player);
+  freezeFighterSnapshot(snapshot.enemy);
+  Object.freeze(snapshot.hitboxes);
+  return Object.freeze(snapshot);
 }

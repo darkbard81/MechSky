@@ -78,11 +78,28 @@
               <span>INPUT</span>
               <strong id="input-source">KEYBOARD · WASD</strong>
             </div>
+            <div>
+              <span>ACTION</span>
+              <strong id="combat-action">NONE</strong>
+            </div>
+            <div>
+              <span>COMBO</span>
+              <strong id="combo-counter" data-active="false">0</strong>
+            </div>
+            <div>
+              <span>ENEMY HP</span>
+              <strong id="enemy-health">900 / 900</strong>
+            </div>
+            <div class="health-track" role="img" aria-label="적 체력">
+              <span id="enemy-health-bar" class="health-bar"></span>
+            </div>
           </div>
           <div class="control-guide" aria-label="이동 조작 안내">
             <span><kbd>WASD</kbd> / <kbd>↑←↓→</kbd> / <kbd>NUM 1–9</kbd> 이동</span>
+            <span><kbd>J</kbd> 공격</span>
             <span><kbd>SHIFT</kbd> DASH</span>
             <span><kbd>TAB</kbd> LOCK</span>
+            <span><kbd>F1</kbd>/<kbd>F2</kbd>/<kbd>F4</kbd>/<kbd>F7</kbd> DEBUG</span>
           </div>
         </section>
 

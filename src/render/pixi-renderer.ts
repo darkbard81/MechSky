@@ -1,7 +1,9 @@
 import "pixi.js/unsafe-eval";
 import "pixi.js/prepare";
 import { Application, Ticker } from "pixi.js";
+import type { SimEvent } from "../sim/world/sim-event";
 import type { SimulationFrame } from "../sim/world/world";
+import type { DebugLayerName } from "./debug/debug-overlay";
 import { loadBattleAssets, type AssetLoadProgress } from "./assets/battle-assets";
 import { BattleScene } from "./battle-scene";
 import { interpolateSimulationFrame } from "./snapshot-interpolation";
@@ -123,6 +125,14 @@ export class PixiBattleRenderer {
     }
 
     this.application.render();
+  }
+
+  consume(events: readonly SimEvent[]): void {
+    this.battleScene?.consume(events);
+  }
+
+  toggleDebugLayer(layer: DebugLayerName): boolean {
+    return this.battleScene?.toggleDebugLayer(layer) ?? false;
   }
 
   destroy(): void {
