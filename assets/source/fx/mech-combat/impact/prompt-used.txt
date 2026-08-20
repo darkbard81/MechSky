@@ -1,0 +1,7 @@
+Use case: stylized-concept
+Asset type: production 2D game hit-impact FX animation sheet
+Primary request: Create exactly four sequential frames of one compact melee impact burst, arranged as exactly 2 rows by 2 columns, read left-to-right across the top row then the bottom row: contact flash, radial spark expansion, bright peak starburst, fading fragments. Contains no character, weapon, or ground.
+Input images: Image 1 is the mech palette/material reference; use cyan-white light with a warm pale-gold impact accent. Image 2 is a layout-only reference for four equal invisible slots; do not reproduce its marks or background.
+Style/medium: clean HD 2D game combat FX, crisp starburst silhouette, luminous center, readable at small size, low texture noise; do not make pixel art.
+Composition/framing: fixed center origin, camera distance, and overall scale in every cell; keep all rays and fragments inside the central 65% with generous margin.
+Constraints: flat solid #FF00FF background only; no floor, no shadow, no reflection, no gradient in the background, no environment, no mech, no body, no weapon, no text, no labels, no visible grid, no borders, no guide marks. Nothing may cross a cell edge.

@@ -68,7 +68,9 @@ export interface FighterSnapshot {
   readonly dashSequence: number;
   readonly lockedTargetId: EntityId | null;
   readonly homingTargetId: EntityId | null;
+  readonly groundSlamPending: boolean;
   readonly downedFrames: number;
+  readonly downedDurationFrames: number;
 }
 
 export interface SimulationSnapshot {
@@ -851,7 +853,9 @@ export class SimulationWorld {
       dashSequence: fighter.dashSequence,
       lockedTargetId: fighter.lockedTargetId,
       homingTargetId: fighter.homingTargetId,
+      groundSlamPending: fighter.groundSlamPending,
       downedFrames: fighter.downedFrames,
+      downedDurationFrames: this.recipe.combat.downedFrames,
     };
   }
 

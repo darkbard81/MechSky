@@ -1,0 +1,7 @@
+Use case: stylized-concept
+Asset type: production 2D game boost-exhaust FX animation sheet
+Primary request: Create exactly four loopable sequential frames of one compact twin-thruster cyan energy plume, arranged as exactly 2 rows by 2 columns, read left-to-right across the top row then the bottom row. Each plume ignites at the same fixed point on the right side and extends horizontally toward screen-left: short pulse, long pulse, bright compressed pulse, settling pulse. Contains no mech or thruster hardware.
+Input images: Image 1 is the mech palette/material reference; use only its cyan-white emissive energy language. Image 2 is a layout-only reference for four equal invisible slots; do not reproduce its marks or background.
+Style/medium: clean HD 2D game boost FX, crisp tapered flame silhouette, cyan core, pale white center, restrained navy edge fragments, low texture noise; do not make pixel art.
+Composition/framing: identical ignition point, camera distance, direction, and scale in every cell. Keep the full plume inside the central 70% with magenta margin on all sides.
+Constraints: flat solid #FF00FF background only; no floor, no shadow, no reflection, no gradient in the background, no environment, no mech, no body, no hardware, no smoke cloud, no text, no labels, no visible grid, no borders, no guide marks. Nothing may cross a cell edge.

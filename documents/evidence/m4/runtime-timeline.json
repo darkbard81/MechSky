@@ -1,0 +1,83 @@
+{
+  "scenario": "J -> J -> K -> Shift -> J -> J -> K",
+  "viewport": "1024x768",
+  "runtime": "Vite + Chromium CDP",
+  "states": [
+    {
+      "label": "ground-1",
+      "attack": "mech-ground-1",
+      "actionFrame": 11,
+      "attackPhase": "recovery",
+      "combo": 1,
+      "enemyHealth": 840
+    },
+    {
+      "label": "ground-2",
+      "attack": "mech-ground-2",
+      "actionFrame": 13,
+      "attackPhase": "recovery",
+      "combo": 2,
+      "enemyHealth": 750
+    },
+    {
+      "label": "launcher",
+      "attack": "mech-launcher",
+      "actionFrame": 13,
+      "attackPhase": "recovery",
+      "combo": 3,
+      "enemyHealth": 675,
+      "enemyElevation": 71,
+      "enemyLocomotion": "airborne"
+    },
+    {
+      "label": "homing-chase",
+      "playerState": "dashing",
+      "playerLocomotion": "airborne",
+      "playerElevation": 63.82,
+      "enemyElevation": 121
+    },
+    {
+      "label": "air-1",
+      "attack": "mech-air-1",
+      "actionFrame": 11,
+      "attackPhase": "recovery",
+      "combo": 4,
+      "enemyHealth": 625,
+      "enemyElevation": 181
+    },
+    {
+      "label": "air-2",
+      "attack": "mech-air-2",
+      "actionFrame": 10,
+      "attackPhase": "recovery",
+      "combo": 5,
+      "enemyHealth": 560,
+      "enemyElevation": 183.33
+    },
+    {
+      "label": "finisher-hit",
+      "attack": "mech-finisher",
+      "actionFrame": 7,
+      "attackPhase": "active",
+      "combo": 6,
+      "enemyHealth": 420,
+      "enemyElevation": 176.67
+    },
+    {
+      "label": "ground-slam",
+      "attack": "mech-finisher",
+      "actionFrame": 21,
+      "attackPhase": "recovery",
+      "enemyHealth": 420,
+      "enemyElevation": 0,
+      "enemyLocomotion": "downed"
+    },
+    {
+      "label": "wake-up",
+      "attack": "none",
+      "enemyHealth": 420,
+      "enemyElevation": 0,
+      "enemyLocomotion": "grounded"
+    }
+  ]
+}

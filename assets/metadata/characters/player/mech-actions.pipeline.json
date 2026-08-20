@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "identityReference": "mech.png",
+  "cellSize": 256,
+  "scaleProfile": "assets/source/characters/player/mech-idle-directional/mech-idle-scale-profile.json",
+  "runtimeRoot": "public/assets/characters/player",
+  "sheets": [
+    {
+      "name": "move",
+      "runtime": "public/assets/characters/player/move.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/move/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/move/prompt-used.txt",
+      "rows": 2,
+      "cols": 3,
+      "frames": 6,
+      "align": "feet",
+      "anchor": [128, 228],
+      "maxProfileScaleDrift": 0.1,
+      "measuredProfileScaleDrift": 0.09934003714339668
+    },
+    {
+      "name": "ground-combo",
+      "runtime": "public/assets/characters/player/ground-combo.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/ground-combo/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/ground-combo/prompt-used.txt",
+      "rows": 2,
+      "cols": 4,
+      "frames": 8,
+      "align": "feet",
+      "anchor": [128, 228],
+      "maxProfileScaleDrift": 0.1,
+      "measuredProfileScaleDrift": 0.09690063397977655
+    },
+    {
+      "name": "launcher",
+      "runtime": "public/assets/characters/player/launcher.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/launcher/processed-v3/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/launcher/prompt-v3-used.txt",
+      "rows": 2,
+      "cols": 3,
+      "frames": 6,
+      "align": "feet",
+      "anchor": [128, 228],
+      "profileException": "상승 실루엣의 자세 변화가 커서 공통 면적 profile 비교 대신 frame CV와 anchor QC를 적용"
+    },
+    {
+      "name": "air-combo",
+      "runtime": "public/assets/characters/player/air-combo.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/air-combo/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/air-combo/prompt-v2-used.txt",
+      "rows": 2,
+      "cols": 3,
+      "frames": 6,
+      "align": "center",
+      "anchor": [128, 128]
+    },
+    {
+      "name": "finisher",
+      "runtime": "public/assets/characters/player/finisher.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/finisher/processed/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/finisher/prompt-used.txt",
+      "rows": 2,
+      "cols": 3,
+      "frames": 6,
+      "align": "center",
+      "anchor": [128, 128]
+    },
+    {
+      "name": "hurt",
+      "runtime": "public/assets/characters/player/hurt.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/hurt/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/hurt/prompt-used.txt",
+      "rows": 2,
+      "cols": 2,
+      "frames": 4,
+      "align": "feet",
+      "anchor": [128, 228],
+      "maxProfileScaleDrift": 0.1,
+      "measuredProfileScaleDrift": 0.08886183123714819
+    },
+    {
+      "name": "knockdown",
+      "runtime": "public/assets/characters/player/knockdown.png",
+      "processorMetadata": "assets/source/characters/player/mech-actions/knockdown/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/characters/player/mech-actions/knockdown/prompt-used.txt",
+      "rows": 2,
+      "cols": 3,
+      "frames": 6,
+      "align": "bottom",
+      "anchor": [128, 228]
+    }
+  ]
+}

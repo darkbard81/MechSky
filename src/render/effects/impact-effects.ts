@@ -1,104 +1,158 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import type {
   GroundImpactEvent,
   HitLandedEvent,
 } from "../../sim/world/sim-event";
 
-const SPARK_POOL_SIZE = 8;
-const SPARK_LIFETIME_SECONDS = 0.26;
+const EFFECT_POOL_SIZE = 16;
+const HIT_EFFECT_LIFETIME_SECONDS = 0.2;
+const SLASH_EFFECT_LIFETIME_SECONDS = 0.24;
+const GROUND_EFFECT_LIFETIME_SECONDS = 0.34;
+const GROUND_FX_ANCHOR_Y = 233 / 256;
 
-interface PooledSpark {
-  readonly view: Graphics;
+export interface CombatEffectTextures {
+  readonly slash: readonly Texture[];
+  readonly impact: readonly Texture[];
+  readonly groundSlam: readonly Texture[];
+}
+
+interface PooledEffect {
+  readonly view: Sprite;
+  frames: readonly Texture[];
   ageSeconds: number;
-  scale: number;
+  lifetimeSeconds: number;
+  startScale: number;
+  endScale: number;
 }
 
-function createSpark(): Graphics {
-  const spark = new Graphics();
-
-  for (let index = 0; index < 8; index += 1) {
-    const angle = (index / 8) * Math.PI * 2;
-    spark
-      .moveTo(Math.cos(angle) * 14, Math.sin(angle) * 14)
-      .lineTo(Math.cos(angle) * 52, Math.sin(angle) * 52);
-  }
-
-  return spark
-    .stroke({ color: 0xfff0c4, width: 5, alpha: 0.95 })
-    .circle(0, 0, 26)
-    .fill({ color: 0xffd166, alpha: 0.55 })
-    .circle(0, 0, 12)
-    .fill({ color: 0xffffff, alpha: 0.9 });
-}
-
-/**
- * Impact visuals are driven by SimEvents, never by reading combat state. The
- * simulation does not know these exist.
- */
+/** SimEvents choose an effect; render time alone advances its presentation. */
 export class ImpactEffects {
-  private readonly sparks: PooledSpark[];
+  private readonly effects: PooledEffect[];
   private cursor = 0;
 
-  constructor(effectsLayer: Container) {
-    this.sparks = Array.from({ length: SPARK_POOL_SIZE }, (_, index) => {
-      const view = createSpark();
-      view.label = `Hit spark ${index + 1}`;
+  constructor(
+    effectsLayer: Container,
+    private readonly textures: CombatEffectTextures,
+  ) {
+    const firstTexture = this.requireFrame(textures.impact, 0, "impact");
+    this.effects = Array.from({ length: EFFECT_POOL_SIZE }, (_, index) => {
+      const view = new Sprite({ texture: firstTexture, anchor: 0.5 });
+      view.label = `Combat effect ${index + 1}`;
       view.visible = false;
       effectsLayer.addChild(view);
-      return { view, ageSeconds: SPARK_LIFETIME_SECONDS, scale: 1 };
+      return {
+        view,
+        frames: textures.impact,
+        ageSeconds: HIT_EFFECT_LIFETIME_SECONDS,
+        lifetimeSeconds: HIT_EFFECT_LIFETIME_SECONDS,
+        startScale: 1,
+        endScale: 1,
+      };
     });
   }
 
   spawn(event: HitLandedEvent): void {
-    this.spawnAt(
-      event.x,
-      event.y - event.elevation,
-      0.85 + Math.min(event.severity, 1.4) * 0.5,
-      event.comboCount * 0.7,
-    );
+    const scale = 0.72 + Math.min(event.severity, 1.4) * 0.28;
+    this.spawnAt({
+      x: event.x,
+      y: event.y - event.elevation,
+      frames: this.textures.slash,
+      lifetimeSeconds: SLASH_EFFECT_LIFETIME_SECONDS,
+      startScale: scale * 0.75,
+      endScale: scale * 1.2,
+      rotation: event.comboCount * 0.7,
+      anchorY: 0.5,
+    });
+    this.spawnAt({
+      x: event.x,
+      y: event.y - event.elevation,
+      frames: this.textures.impact,
+      lifetimeSeconds: HIT_EFFECT_LIFETIME_SECONDS,
+      startScale: scale * 0.52,
+      endScale: scale,
+      rotation: -event.comboCount * 0.3,
+      anchorY: 0.5,
+    });
   }
 
   spawnGroundImpact(event: GroundImpactEvent): void {
-    this.spawnAt(
-      event.x,
-      event.y,
-      1.45 + Math.min(event.severity, 2) * 0.55,
-      Math.PI / 8,
-    );
-  }
-
-  private spawnAt(x: number, y: number, scale: number, rotation: number): void {
-    const spark = this.sparks[this.cursor];
-    if (spark === undefined) {
-      return;
-    }
-
-    this.cursor = (this.cursor + 1) % this.sparks.length;
-    spark.ageSeconds = 0;
-    spark.scale = scale;
-    spark.view.visible = true;
-    spark.view.alpha = 1;
-    spark.view.position.set(x, y);
-    spark.view.rotation = rotation;
-    spark.view.scale.set(spark.scale * 0.55);
+    const scale = 1.1 + Math.min(event.severity, 2) * 0.34;
+    this.spawnAt({
+      x: event.x,
+      y: event.y,
+      frames: this.textures.groundSlam,
+      lifetimeSeconds: GROUND_EFFECT_LIFETIME_SECONDS,
+      startScale: scale * 0.72,
+      endScale: scale * 1.12,
+      rotation: 0,
+      anchorY: GROUND_FX_ANCHOR_Y,
+    });
   }
 
   advance(deltaSeconds: number): void {
-    for (const spark of this.sparks) {
-      if (!spark.view.visible) {
+    for (const effect of this.effects) {
+      if (!effect.view.visible) {
         continue;
       }
 
-      spark.ageSeconds += deltaSeconds;
-      const life = spark.ageSeconds / SPARK_LIFETIME_SECONDS;
-
-      if (life >= 1) {
-        spark.view.visible = false;
+      effect.ageSeconds += deltaSeconds;
+      const progress = effect.ageSeconds / effect.lifetimeSeconds;
+      if (progress >= 1) {
+        effect.view.visible = false;
         continue;
       }
 
-      spark.view.alpha = 1 - life * life;
-      spark.view.scale.set(spark.scale * (0.55 + life * 0.85));
+      const frameIndex = Math.min(
+        effect.frames.length - 1,
+        Math.floor(progress * effect.frames.length),
+      );
+      effect.view.texture = this.requireFrame(effect.frames, frameIndex, "effect");
+      effect.view.alpha = Math.min(1, (1 - progress) * 1.35);
+      const scale =
+        effect.startScale + (effect.endScale - effect.startScale) * progress;
+      effect.view.scale.set(scale);
     }
+  }
+
+  private spawnAt(options: {
+    readonly x: number;
+    readonly y: number;
+    readonly frames: readonly Texture[];
+    readonly lifetimeSeconds: number;
+    readonly startScale: number;
+    readonly endScale: number;
+    readonly rotation: number;
+    readonly anchorY: number;
+  }): void {
+    const effect = this.effects[this.cursor];
+    if (effect === undefined) {
+      return;
+    }
+
+    this.cursor = (this.cursor + 1) % this.effects.length;
+    effect.frames = options.frames;
+    effect.ageSeconds = 0;
+    effect.lifetimeSeconds = options.lifetimeSeconds;
+    effect.startScale = options.startScale;
+    effect.endScale = options.endScale;
+    effect.view.texture = this.requireFrame(options.frames, 0, "effect");
+    effect.view.anchor.set(0.5, options.anchorY);
+    effect.view.position.set(options.x, options.y);
+    effect.view.rotation = options.rotation;
+    effect.view.scale.set(options.startScale);
+    effect.view.alpha = 1;
+    effect.view.visible = true;
+  }
+
+  private requireFrame(
+    frames: readonly Texture[],
+    index: number,
+    label: string,
+  ): Texture {
+    const texture = frames[index];
+    if (texture === undefined) {
+      throw new RangeError(`${label} texture is missing at frame ${index}.`);
+    }
+    return texture;
   }
 }

@@ -1,6 +1,6 @@
 import "pixi.js/unsafe-eval";
 import "pixi.js/prepare";
-import { Application, Ticker } from "pixi.js";
+import { Application, Ticker, type Texture } from "pixi.js";
 import type { SimEvent } from "../sim/world/sim-event";
 import type { SimulationFrame } from "../sim/world/world";
 import type { DebugLayerName } from "./debug/debug-overlay";
@@ -14,10 +14,11 @@ const PREWARM_TIMEOUT_MILLISECONDS = 5_000;
 
 async function prewarmStage(
   application: Application,
+  textures: readonly Texture[],
   isCancelled: () => boolean,
 ): Promise<void> {
   const prepare = application.renderer.prepare;
-  const upload = prepare.upload(application.stage);
+  const upload = prepare.upload([application.stage, ...textures]);
   const deadline = performance.now() + PREWARM_TIMEOUT_MILLISECONDS;
 
   // PrepareSystem normally advances through the auto-starting system ticker.
@@ -95,6 +96,7 @@ export class PixiBattleRenderer {
     onProgress(0.93, "texture GPU prewarm");
     await prewarmStage(
       this.application,
+      assets.prewarmTextures,
       () => generation !== this.lifecycleGeneration,
     );
     this.assertCurrentGeneration(generation);

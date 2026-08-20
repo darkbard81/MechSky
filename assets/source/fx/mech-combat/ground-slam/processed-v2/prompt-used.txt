@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: production 2D game ground-slam FX sheet containment correction
+Primary request: Edit Image 1 only. Preserve the exact four shockwave stages, order, cyan-white and pale-gold colors, clean HD FX style, and flat magenta background. Uniformly reduce every effect to 68% of its current linear size and recenter it inside its own cell while keeping one shared horizontal ground-contact baseline. The two bottom-row effects currently cross cell boundaries; shrink and center them so the complete ring, rays, and shards have clear magenta margin on all four sides and no frame overlaps a neighbor.
+Input images: Image 1 is the edit target ground-slam sheet. Image 2 is the four-cell layout-only reference.
+Constraints: exactly 2 rows by 2 columns and exactly four FX frames. Flat solid #FF00FF only; no floor, shadow, reflection, background gradient, environment, mech, body, weapon, tile, ground plate, text, labels, visible grid, borders, or guide marks. Change only uniform scale, centering, and baseline alignment needed for containment.

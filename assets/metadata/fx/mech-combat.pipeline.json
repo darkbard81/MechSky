@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "cellSize": 256,
+  "runtimeRoot": "public/assets/fx/mech",
+  "sheets": [
+    {
+      "name": "slash",
+      "runtime": "public/assets/fx/mech/slash.png",
+      "processorMetadata": "assets/source/fx/mech-combat/slash/processed/pipeline-meta.json",
+      "prompt": "assets/source/fx/mech-combat/slash/prompt-used.txt",
+      "rows": 2,
+      "cols": 2,
+      "frames": 4,
+      "align": "center",
+      "anchor": [128, 128]
+    },
+    {
+      "name": "impact",
+      "runtime": "public/assets/fx/mech/impact.png",
+      "processorMetadata": "assets/source/fx/mech-combat/impact/processed/pipeline-meta.json",
+      "prompt": "assets/source/fx/mech-combat/impact/prompt-used.txt",
+      "rows": 2,
+      "cols": 2,
+      "frames": 4,
+      "align": "center",
+      "anchor": [128, 128]
+    },
+    {
+      "name": "boost",
+      "runtime": "public/assets/fx/mech/boost.png",
+      "processorMetadata": "assets/source/fx/mech-combat/boost/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/fx/mech-combat/boost/prompt-v2-used.txt",
+      "rows": 2,
+      "cols": 2,
+      "frames": 4,
+      "align": "center",
+      "anchor": [128, 128]
+    },
+    {
+      "name": "ground-slam",
+      "runtime": "public/assets/fx/mech/ground-slam.png",
+      "processorMetadata": "assets/source/fx/mech-combat/ground-slam/processed-v2/pipeline-meta.json",
+      "prompt": "assets/source/fx/mech-combat/ground-slam/prompt-v2-used.txt",
+      "rows": 2,
+      "cols": 2,
+      "frames": 4,
+      "align": "bottom",
+      "anchor": [128, 233]
+    }
+  ]
+}

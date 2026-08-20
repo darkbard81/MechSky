@@ -149,3 +149,69 @@ ffmpeg -i assets/source/arenas/hangar/hangar-floor-imagegen.png \
   -vf "scale=256:256:flags=lanczos" -frames:v 1 \
   public/assets/arenas/hangar/hangar-floor.png
 ```
+
+## M4 action body와 combat FX
+
+M4 bitmap은 `mech.png`를 identity reference로 사용하고 액션마다 built-in
+`$imagegen`을 별도 호출했다. 각 호출의 원문 prompt는 아래의 action/FX 폴더에 있는
+`prompt-used.txt`에 보존했다. 수정 생성은 최초 결과를 덮지 않고 `raw-sheet-v2.png`,
+`raw-sheet-v3.png`와 대응 prompt를 함께 남겼다.
+
+수락한 결과와 runtime export 계약은 다음 두 파일이 단일 목록으로 기록한다.
+
+- `metadata/characters/player/mech-actions.pipeline.json`
+- `metadata/fx/mech-combat.pipeline.json`
+
+| Sheet | 수락 processor 결과 | Grid / align | Runtime |
+|---|---|---|---|
+| move | `move/processed-v2` | 2×3 / feet | `move.png` |
+| ground combo | `ground-combo/processed-v2` | 2×4 / feet | `ground-combo.png` |
+| launcher | `launcher/processed-v3` | 2×3 / feet | `launcher.png` |
+| air combo | `air-combo/processed-v2` | 2×3 / center | `air-combo.png` |
+| finisher | `finisher/processed` | 2×3 / center | `finisher.png` |
+| hurt | `hurt/processed-v2` | 2×2 / feet | `hurt.png` |
+| knockdown | `knockdown/processed-v2` | 2×3 / bottom | `knockdown.png` |
+| slash | `slash/processed` | 2×2 / center | `slash.png` |
+| impact | `impact/processed` | 2×2 / center | `impact.png` |
+| boost | `boost/processed-v2` | 2×2 / center | `boost.png` |
+| ground slam | `ground-slam/processed-v2` | 2×2 / bottom | `ground-slam.png` |
+
+각 raw sheet는 아래 명령으로 RGBA soft matte source로 바꿨다. `<raw>`와 `<keyed>`는
+aggregate metadata가 가리키는 수락 variant의 경로다.
+
+```bash
+python /home/deck/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py \
+  --input <raw> --out <keyed> \
+  --auto-key border --soft-matte \
+  --transparent-threshold 12 --opaque-threshold 220 --despill
+```
+
+지상 body sheet의 공통 처리 계약은 다음과 같다. move, ground combo, hurt는 idle
+scale profile을 적용한다. 동작 실루엣이 크게 세워지는 launcher는 profile 면적 비교를
+적용하지 않고 frame 간 `body_scale_cv ≤ 0.08`, `anchor_y_std ≤ 0.05`를 적용했다.
+move, ground combo, hurt의 동작 자세는 idle보다 면적 변화가 커서 profile drift 한도를
+`0.10`으로 명시했으며 측정값은 각각 `0.09934`, `0.09690`, `0.08886`이다.
+
+```bash
+python /home/deck/.codex/skills/generate2dsprite/scripts/generate2dsprite.py process \
+  --input <keyed> --target player --mode <mode> \
+  --rows <rows> --cols <cols> --label-prefix <action> \
+  --output-dir <accepted-processor-directory> \
+  --prompt-file <action-prompt-used.txt> \
+  --cell-size 256 --fit-scale 0.78 \
+  --align feet --shared-scale --scale-strategy fit \
+  --component-mode largest --strict-qc \
+  --max-body-scale-cv 0.08 --max-anchor-y-std 0.05 \
+  --scale-profile assets/source/characters/player/mech-idle-directional/mech-idle-scale-profile.json \
+  --max-profile-scale-drift 0.10 --duration <milliseconds>
+```
+
+air combo와 finisher는 회전하는 공중 silhouette를 유지하기 위해 `--align center`,
+knockdown은 지면 접촉선을 고정하기 위해 `--align bottom`으로 처리했다. FX는 body와
+분리해 `--target asset --fit-scale 0.82 --component-mode all`을 사용했다. 모든 수락
+sheet의 `empty_frames`, `source_edge_touch_frames`, `output_edge_touch_frames`,
+`paste_clamped_frames`는 비어 있다. feet/bottom 정렬 body의 opaque bottom은 전 frame
+`y=228`, ground-slam FX의 지면 anchor는 `y=233`이다.
+
+재생성 과정에서 cell 경계를 넘은 launcher v1/v2, air-combo v1, boost v1,
+ground-slam v1은 source 기록으로만 보존하고 runtime bundle에는 포함하지 않았다.

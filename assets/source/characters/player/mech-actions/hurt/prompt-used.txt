@@ -1,0 +1,8 @@
+Use case: stylized-concept
+Asset type: production 2D game player grounded hurt body animation sheet
+Primary request: Create exactly four sequential full-body frames of the same white, navy, and cyan humanoid mech, arranged as exactly 2 rows by 2 columns, read left-to-right across the top row then the bottom row. The grounded hurt sequence facing screen-right is: initial impact compression, backward recoil, staggered brace, stable guard recovery.
+Input images: Image 1 is the canonical exact mech identity and material reference. Image 2 is the accepted runtime idle sprite and exact body-scale reference. Image 3 is a scale-and-root template made from that accepted sprite.
+Style/medium: clean HD hand-painted 2D game sprite, crisp silhouette, controlled cel-shaded lighting, low texture noise; do not make pixel art.
+Composition/framing: Preserve Image 3's exact four cell locations, fixed camera distance, standing-equivalent anatomical scale, body-root position, grounded foot-contact line, and padding. Change only the hurt pose in each slot. Three-quarter combat view from slightly above, facing screen-right.
+Color/material invariants: preserve the exact white armor, navy panels, black joints, cyan visor and cyan emissive details, angular shoulders, antennae, long legs, humanoid proportions, camera, lighting, line weight, and body scale from Image 1. Armor stays intact; no body-part loss.
+Constraints: flat solid #FF00FF background only; no floor, no shadow, no reflection, no gradient, no environment, no labels, no text, no visible grid, no borders, no guide marks. Body only: no attacker, no impact burst, no spark, no debris, no dust. Nothing may cross a cell edge. Do not zoom or resize individual poses.

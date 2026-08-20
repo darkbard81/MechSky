@@ -1,0 +1,7 @@
+Use case: stylized-concept
+Asset type: production 2D game ground-slam impact FX animation sheet
+Primary request: Create exactly four sequential frames of one powerful ground-slam shockwave, arranged as exactly 2 rows by 2 columns, read left-to-right across the top row then the bottom row: compact ground-contact ignition, widening cyan-gold shock ring, peak radial burst with short upward shards, fading broken ring. Contains no character, weapon, floor tile, or baked ground plate.
+Input images: Image 1 is the mech palette/material reference; use cyan-white energy with a pale warm-gold impact accent. Image 2 is a layout-only reference for four equal invisible slots; do not reproduce its marks or background.
+Style/medium: clean HD 2D game combat FX, crisp readable shockwave, controlled glow, low texture noise; do not make pixel art.
+Composition/framing: one fixed horizontal ground-contact baseline at 68% of every cell height, identical center origin, camera distance, and overall scale. Ring and shards stay inside the central 72% with generous margin.
+Constraints: flat solid #FF00FF background only; no floor, no shadow, no reflection, no gradient in the background, no environment, no mech, no body, no weapon, no tile, no ground plate, no text, no labels, no visible grid, no borders, no guide marks. Nothing may cross a cell edge.

@@ -22,6 +22,99 @@
           }
         }
       ]
+    },
+    {
+      "name": "vertical-slice",
+      "assets": [
+        {
+          "alias": "player-mech-move",
+          "src": "assets/characters/player/move.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-ground-combo",
+          "src": "assets/characters/player/ground-combo.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-launcher",
+          "src": "assets/characters/player/launcher.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-air-combo",
+          "src": "assets/characters/player/air-combo.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-finisher",
+          "src": "assets/characters/player/finisher.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-hurt",
+          "src": "assets/characters/player/hurt.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "player-mech-knockdown",
+          "src": "assets/characters/player/knockdown.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "mech-slash-fx",
+          "src": "assets/fx/mech/slash.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "mech-impact-fx",
+          "src": "assets/fx/mech/impact.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "mech-boost-fx",
+          "src": "assets/fx/mech/boost.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        },
+        {
+          "alias": "mech-ground-slam-fx",
+          "src": "assets/fx/mech/ground-slam.png",
+          "data": {
+            "autoGenerateMipmaps": true,
+            "scaleMode": "linear"
+          }
+        }
+      ]
     }
   ]
 }

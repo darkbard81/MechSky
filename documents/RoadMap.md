@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1·M2·M3 완료, M4 대기
+> 상태: M0·M1·M2·M3·M4 완료, M5 대기
 
 ## 1. 목표
 
@@ -444,6 +444,23 @@ outline을 사용한다.
 - action별 투명 GIF/contact sheet
 - frame edge/anchor/scale QC metadata
 - 최종 combo clip
+
+완료 기록 (2026-08-20):
+
+- [`action/FX 투명 GIF 및 자동 검증 기록`](./evidence/m4/README.md)
+- `mech.png` identity reference로 move, ground combo, launcher, air combo, finisher,
+  hurt, knockdown body sheet와 slash, impact, boost, ground-slam FX를 액션별 생성
+- 수락한 11개 sheet의 256×256 cell, 투명 RGBA, edge/clamp/empty, 지면 anchor를
+  processor metadata와 render asset test로 고정
+- simulation `actionFrame` 기반 startup/active/recovery frame 선택과 hit-stop pose 정지,
+  render-time FX 진행을 분리
+- `vertical-slice` bundle 전체 sheet를 첫 화면 전에 GPU prewarm하고 player/enemy tint,
+  afterimage, slash/impact/shockwave, camera shake, WebAudio 최소 SFX를 연결
+- `npm run build`에서 lint, typecheck, 15개 test file / 91개 test, web/Electron build 통과
+- 1024×768 Chromium CDP에서 전체 콤보, HP 변화, 공중 분리, ground slam, wake-up을
+  재현하고 [`최종 combo clip`](./evidence/m4/final-combo.mp4)과 state timeline을 기록
+- 사용자가 실제 실행 화면에서 identity/scale, feet anchor, FX 잘림, hit-stop feedback,
+  첫 사용 hitch, 최소 SFX를 확인하고 모든 M4 가시 완료 조건을 승인
 
 ### M5. 적 AI, HUD, 한 판의 시작과 끝
 

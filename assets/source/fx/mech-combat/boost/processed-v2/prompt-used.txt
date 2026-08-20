@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: production 2D game boost-exhaust FX sheet containment correction
+Primary request: Edit Image 1 only. Preserve the exact four twin-thruster plume designs, order, cyan-white color, horizontal screen-left direction, style, and flat magenta background. Uniformly reduce every plume to 72% of its current linear size and recenter each one in its own cell. The top-right second plume currently crosses the left cell boundary; move that entire plume rightward so it has clear magenta margin on all four sides. No frame may overlap a neighbor.
+Input images: Image 1 is the edit target boost sheet. Image 2 is the four-cell layout-only reference.
+Constraints: exactly 2 rows by 2 columns and exactly four FX frames. Preserve one fixed scale and ignition orientation. Flat solid #FF00FF only; no floor, shadow, reflection, background gradient, environment, mech, body, hardware, smoke, text, labels, visible grid, borders, or guide marks. Change only uniform scale and centering needed for containment.

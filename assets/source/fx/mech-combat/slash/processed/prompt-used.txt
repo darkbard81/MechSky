@@ -1,0 +1,7 @@
+Use case: stylized-concept
+Asset type: production 2D game melee slash FX animation sheet
+Primary request: Create exactly four sequential frames of one cyan-white energy slash arc, arranged as exactly 2 rows by 2 columns, read left-to-right across the top row then the bottom row: thin ignition crescent, expanding sharp arc, bright peak sweep, fragmented fade. The slash travels toward screen-right and contains no character or weapon.
+Input images: Image 1 is the mech palette/material reference; use only its cyan-white energy color language. Image 2 is a layout-only reference for four equal invisible slots; do not reproduce its marks or background.
+Style/medium: clean HD 2D game combat FX, crisp graphic silhouette, luminous cyan core, pale white edge, restrained navy fragments, low texture noise; do not make pixel art.
+Composition/framing: same effect origin, camera distance, overall scale, and screen-right travel direction in every cell; keep the complete arc inside the central 70% with generous margin.
+Constraints: flat solid #FF00FF background only; no floor, no shadow, no reflection, no gradient in the background, no environment, no mech, no body, no weapon, no text, no labels, no visible grid, no borders, no guide marks. Nothing may cross a cell edge.

@@ -5,6 +5,7 @@ import {
   BATTLE_ASSET_ALIASES,
   BATTLE_ASSET_MANIFEST,
   BATTLE_COMMON_BUNDLE,
+  VERTICAL_SLICE_BUNDLE,
 } from "../../src/render/assets/battle-asset-manifest";
 
 interface PngSize {
@@ -60,6 +61,100 @@ describe("battle asset manifest", () => {
     await expect(readPngSize(resolve("public", player?.src ?? ""))).resolves.toMatchObject(
       { width: 1024, height: 1024, colorType: 6 },
     );
+  });
+
+  it("loads every M4 action and effect sheet from the vertical-slice bundle", async () => {
+    const sliceBundle = BATTLE_ASSET_MANIFEST.bundles.find(
+      ({ name }) => name === VERTICAL_SLICE_BUNDLE,
+    );
+
+    expect(sliceBundle).toBeDefined();
+    expect(sliceBundle?.assets.map(({ alias }) => alias)).toEqual([
+      BATTLE_ASSET_ALIASES.playerMechMove,
+      BATTLE_ASSET_ALIASES.playerMechGroundCombo,
+      BATTLE_ASSET_ALIASES.playerMechLauncher,
+      BATTLE_ASSET_ALIASES.playerMechAirCombo,
+      BATTLE_ASSET_ALIASES.playerMechFinisher,
+      BATTLE_ASSET_ALIASES.playerMechHurt,
+      BATTLE_ASSET_ALIASES.playerMechKnockdown,
+      BATTLE_ASSET_ALIASES.mechSlashFx,
+      BATTLE_ASSET_ALIASES.mechImpactFx,
+      BATTLE_ASSET_ALIASES.mechBoostFx,
+      BATTLE_ASSET_ALIASES.mechGroundSlamFx,
+    ]);
+  });
+
+  it("keeps accepted M4 sheets transparent, bounded, and aligned", async () => {
+    const metadataPaths = [
+      "assets/metadata/characters/player/mech-actions.pipeline.json",
+      "assets/metadata/fx/mech-combat.pipeline.json",
+    ];
+
+    for (const metadataPath of metadataPaths) {
+      const aggregate = JSON.parse(
+        await readFile(resolve(metadataPath), "utf8"),
+      ) as {
+        cellSize: number;
+        sheets: Array<{
+          name: string;
+          runtime: string;
+          processorMetadata: string;
+          prompt: string;
+          rows: number;
+          cols: number;
+          frames: number;
+          align: string;
+          anchor: number[];
+        }>;
+      };
+
+      expect(aggregate.cellSize).toBe(256);
+      for (const sheet of aggregate.sheets) {
+        await expect(readPngSize(resolve(sheet.runtime))).resolves.toMatchObject({
+          width: sheet.cols * aggregate.cellSize,
+          height: sheet.rows * aggregate.cellSize,
+          colorType: 6,
+        });
+        await expect(readFile(resolve(sheet.prompt), "utf8")).resolves.not.toHaveLength(0);
+
+        const processor = JSON.parse(
+          await readFile(resolve(sheet.processorMetadata), "utf8"),
+        ) as {
+          rows: number;
+          cols: number;
+          cell_size: number;
+          align: string;
+          empty_frames: unknown[];
+          source_edge_touch_frames: unknown[];
+          output_edge_touch_frames: unknown[];
+          paste_clamped_frames: unknown[];
+          frames: Array<{ aligned_bbox: number[] }>;
+          qc_summary: {
+            valid_frame_count: number;
+          };
+        };
+
+        expect(processor).toMatchObject({
+          rows: sheet.rows,
+          cols: sheet.cols,
+          cell_size: aggregate.cellSize,
+          align: sheet.align,
+        });
+        expect(processor.empty_frames).toEqual([]);
+        expect(processor.source_edge_touch_frames).toEqual([]);
+        expect(processor.output_edge_touch_frames).toEqual([]);
+        expect(processor.paste_clamped_frames).toEqual([]);
+        expect(processor.frames).toHaveLength(sheet.frames);
+        expect(processor.qc_summary.valid_frame_count).toBe(sheet.frames);
+
+        if (sheet.align === "feet" || sheet.align === "bottom") {
+          expect(
+            new Set(processor.frames.map(({ aligned_bbox }) => aligned_bbox[3])),
+            `${sheet.name} bottom anchor`,
+          ).toEqual(new Set([sheet.anchor[1]]));
+        }
+      }
+    }
   });
 
   it("keeps all directional idle frames transparent, aligned, and inside their cells", async () => {

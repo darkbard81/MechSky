@@ -1,19 +1,15 @@
-import { Graphics, Rectangle, Sprite, Texture, TilingSprite } from "pixi.js";
+import { Graphics, Sprite, TilingSprite, type Texture } from "pixi.js";
 import type { FighterSnapshot, SimulationSnapshot } from "../sim/world/world";
 import type { SimEvent } from "../sim/world/sim-event";
 import type { BattleAssets } from "./assets/battle-assets";
-import {
-  DIRECTIONAL_IDLE_DIRECTIONS,
-  DIRECTIONAL_IDLE_FRAME_COUNT,
-  DIRECTIONAL_IDLE_SHEET_SIZE,
-  directionalIdleFrameAddress,
-} from "./actors/directional-idle";
 import {
   ENEMY_PALETTE,
   FighterView,
   MECH_FEET_ANCHOR_Y,
   PLAYER_PALETTE,
+  type MechTextureSet,
 } from "./actors/fighter-view";
+import { createSheetTextures } from "./assets/sheet-textures";
 import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
 import { CameraShake } from "./camera/camera-shake";
 import { resolveBattleCameraTarget } from "./camera/battle-camera-target";
@@ -31,31 +27,27 @@ interface Afterimage {
   ageSeconds: number;
 }
 
-function createDirectionalIdleTextures(sheet: Texture): readonly Texture[] {
-  if (
-    sheet.width !== DIRECTIONAL_IDLE_SHEET_SIZE ||
-    sheet.height !== DIRECTIONAL_IDLE_SHEET_SIZE
-  ) {
-    throw new RangeError(
-      `Player directional idle sheet must be ${DIRECTIONAL_IDLE_SHEET_SIZE} by ${DIRECTIONAL_IDLE_SHEET_SIZE} pixels.`,
-    );
-  }
-
-  return Array.from(
-    { length: DIRECTIONAL_IDLE_DIRECTIONS.length * DIRECTIONAL_IDLE_FRAME_COUNT },
-    (_, index) => {
-      const row = Math.floor(index / DIRECTIONAL_IDLE_FRAME_COUNT);
-      const column = index % DIRECTIONAL_IDLE_FRAME_COUNT;
-      const direction = DIRECTIONAL_IDLE_DIRECTIONS[row] ?? "front";
-      const frame = directionalIdleFrameAddress(direction, column);
-
-      return new Texture({
-        frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
-        label: `Mech idle ${direction} ${column + 1}`,
-        source: sheet.source,
-      });
-    },
-  );
+function createMechTextures(assets: BattleAssets): MechTextureSet {
+  return Object.freeze({
+    idle: createSheetTextures(assets.playerMechIdle, 4, 4, "Mech idle"),
+    move: createSheetTextures(assets.playerMechMove, 2, 3, "Mech move"),
+    groundCombo: createSheetTextures(
+      assets.playerMechGroundCombo,
+      2,
+      4,
+      "Mech ground combo",
+    ),
+    launcher: createSheetTextures(assets.playerMechLauncher, 2, 3, "Mech launcher"),
+    airCombo: createSheetTextures(assets.playerMechAirCombo, 2, 3, "Mech air combo"),
+    finisher: createSheetTextures(assets.playerMechFinisher, 2, 3, "Mech finisher"),
+    hurt: createSheetTextures(assets.playerMechHurt, 2, 2, "Mech hurt"),
+    knockdown: createSheetTextures(
+      assets.playerMechKnockdown,
+      2,
+      3,
+      "Mech knockdown",
+    ),
+  });
 }
 
 function createUnitPanel(color: number, alpha: number): Graphics {
@@ -112,17 +104,6 @@ function createTargetReticle(): Graphics {
     .fill({ color: 0xffc5b5, alpha: 0.95 });
 }
 
-function createBoostTrail(): Graphics {
-  return new Graphics()
-    .poly([8, 0, -30, -10, -86, 0, -30, 10], true)
-    .fill({ color: 0x59e8ee, alpha: 0.36 })
-    .moveTo(-8, -15)
-    .lineTo(-72, -25)
-    .moveTo(-8, 15)
-    .lineTo(-72, 25)
-    .stroke({ color: 0xc8ffff, width: 3, alpha: 0.7 });
-}
-
 export class BattleScene {
   private readonly background = createUnitPanel(0x050b10, 1);
   private readonly floor: TilingSprite;
@@ -131,7 +112,8 @@ export class BattleScene {
   private readonly playerView: FighterView;
   private readonly enemyView: FighterView;
   private readonly afterimages: Afterimage[];
-  private readonly boostTrail = createBoostTrail();
+  private readonly boostTrail: Sprite;
+  private readonly boostTextures: readonly Texture[];
   private readonly targetGround = createTargetGroundMarker();
   private readonly targetReticle = createTargetReticle();
   private readonly impacts: ImpactEffects;
@@ -159,9 +141,30 @@ export class BattleScene {
     this.playerId = initialSnapshot.player.id;
     this.enemyId = initialSnapshot.enemy.id;
 
-    const idleTextures = createDirectionalIdleTextures(assets.playerMechIdle);
-    this.playerView = new FighterView(layers, idleTextures, PLAYER_PALETTE, "Player mech");
-    this.enemyView = new FighterView(layers, idleTextures, ENEMY_PALETTE, "Enemy mech");
+    const mechTextures = createMechTextures(assets);
+    this.playerView = new FighterView(
+      layers,
+      mechTextures,
+      PLAYER_PALETTE,
+      "Player mech",
+    );
+    this.enemyView = new FighterView(
+      layers,
+      mechTextures,
+      ENEMY_PALETTE,
+      "Enemy mech",
+    );
+
+    this.boostTextures = createSheetTextures(assets.mechBoostFx, 2, 2, "Mech boost");
+    const firstBoostTexture = this.boostTextures[0];
+    if (firstBoostTexture === undefined) {
+      throw new Error("Mech boost sheet has no frames.");
+    }
+    this.boostTrail = new Sprite({
+      texture: firstBoostTexture,
+      anchor: { x: 0.82, y: 0.5 },
+    });
+    this.boostTrail.scale.set(0.72);
 
     this.floor = new TilingSprite({ texture: assets.hangarFloor, width: 1, height: 1 });
     this.floor.tileScale.set(0.82);
@@ -201,7 +204,16 @@ export class BattleScene {
     layers.actors.addChild(...this.afterimages.map(({ sprite }) => sprite));
     layers.effects.addChild(this.boostTrail, this.targetReticle);
 
-    this.impacts = new ImpactEffects(layers.effects);
+    this.impacts = new ImpactEffects(layers.effects, {
+      slash: createSheetTextures(assets.mechSlashFx, 2, 2, "Mech slash"),
+      impact: createSheetTextures(assets.mechImpactFx, 2, 2, "Mech impact"),
+      groundSlam: createSheetTextures(
+        assets.mechGroundSlamFx,
+        2,
+        2,
+        "Mech ground slam",
+      ),
+    });
     this.debug = new DebugOverlay(layers.debug);
 
     this.present(initialSnapshot, 0);
@@ -299,12 +311,18 @@ export class BattleScene {
 
     this.boostTrail.visible = dashing;
     if (dashing) {
+      const frameIndex = Math.floor(snapshot.tick / 2) % this.boostTextures.length;
+      const texture = this.boostTextures[frameIndex];
+      if (texture === undefined) {
+        throw new RangeError(`Boost texture is missing at frame ${frameIndex}.`);
+      }
+      this.boostTrail.texture = texture;
       this.boostTrail.position.set(
         position.x,
-        position.y - position.elevation - 72,
+        position.y - position.elevation - 78,
       );
       this.boostTrail.rotation = Math.atan2(velocity.y, velocity.x);
-      this.boostTrail.alpha = 0.72 + Math.sin(snapshot.elapsedSeconds * 50) * 0.14;
+      this.boostTrail.alpha = 0.78;
     }
   }
 
@@ -314,14 +332,11 @@ export class BattleScene {
       return;
     }
 
-    const { position, velocity } = player.body;
+    const { position } = player.body;
     afterimage.ageSeconds = 0;
     afterimage.sprite.visible = true;
     afterimage.sprite.alpha = 0.34;
-    afterimage.sprite.texture = this.playerView.texture;
-    afterimage.sprite.position.set(position.x, position.y - position.elevation);
-    afterimage.sprite.rotation = (velocity.x / player.dashSpeed) * 0.07;
-    afterimage.sprite.scale.set(1.04, 0.98);
+    this.playerView.copyPresentationTo(afterimage.sprite);
     afterimage.sprite.zIndex = position.y - 0.25;
     this.afterimageCursor = (this.afterimageCursor + 1) % this.afterimages.length;
   }

@@ -1,16 +1,21 @@
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { FighterSnapshot } from "../../sim/world/world";
 import { actorGroundSortKey } from "./ground-sort";
-import {
-  DIRECTIONAL_IDLE_FRAME_COUNT,
-  resolveDirectionalIdleFrameAddress,
-} from "./directional-idle";
 import type { StageLayers } from "../stage-layers";
 import { projectFighter } from "./fighter-projection";
+import {
+  resolveMechFrame,
+  type MechAnimationSheet,
+} from "../animation/mech-action-animation";
 
 export const MECH_FEET_ANCHOR_Y = 228 / 256;
 
 const HIT_FLASH_SECONDS = 0.12;
+const CENTER_ALIGNED_OFFSET_Y = 128 - 228;
+
+export type MechTextureSet = Readonly<
+  Record<MechAnimationSheet, readonly Texture[]>
+>;
 
 export interface FighterPalette {
   /** Multiplied over the shared idle sheet to separate the two mechs. */
@@ -51,11 +56,11 @@ export class FighterView {
 
   constructor(
     layers: StageLayers,
-    private readonly textures: readonly Texture[],
+    private readonly textures: MechTextureSet,
     private readonly palette: FighterPalette,
     label: string,
   ) {
-    const first = this.requireTexture(0, 0);
+    const first = this.requireTexture("idle", 0);
 
     this.sprite = new Sprite({
       texture: first,
@@ -81,36 +86,40 @@ export class FighterView {
     return { x: this.root.position.x, y: this.root.position.y };
   }
 
+  copyPresentationTo(sprite: Sprite): void {
+    sprite.texture = this.sprite.texture;
+    sprite.anchor.copyFrom(this.sprite.anchor);
+    sprite.position.set(
+      this.root.position.x + this.sprite.position.x,
+      this.root.position.y + this.sprite.position.y,
+    );
+    sprite.rotation = this.sprite.rotation;
+    sprite.scale.copyFrom(this.sprite.scale);
+  }
+
   flash(): void {
     this.flashSeconds = HIT_FLASH_SECONDS;
   }
 
   present(fighter: FighterSnapshot, tick: number, deltaSeconds: number): void {
-    const { position, velocity } = fighter.body;
+    const { position } = fighter.body;
     const projection = projectFighter(position);
 
     this.root.position.set(projection.actor.x, projection.actor.y);
     this.root.zIndex = actorGroundSortKey(fighter);
 
-    const frame = resolveDirectionalIdleFrameAddress(fighter.facing, tick, fighter.state);
-    this.sprite.texture = this.requireTexture(frame.row, frame.column);
-    this.sprite.position.y = projection.spriteOffsetY;
-
-    const speedRatio = Math.min(
-      Math.hypot(velocity.x, velocity.y) / Math.max(fighter.maximumSpeed, 1),
-      1.5,
+    const frame = resolveMechFrame(fighter, tick);
+    this.sprite.texture = this.requireTexture(frame.sheet, frame.frameIndex);
+    const centerAligned = frame.sheet === "airCombo" || frame.sheet === "finisher";
+    this.sprite.anchor.set(0.5, centerAligned ? 0.5 : MECH_FEET_ANCHOR_Y);
+    this.sprite.position.set(
+      0,
+      projection.spriteOffsetY + (centerAligned ? CENTER_ALIGNED_OFFSET_Y : 0),
     );
-    const lunge = fighter.actionKind === "attack" ? this.attackLunge(fighter) : 0;
-    const pose = this.resolvePose(fighter, lunge);
-    this.sprite.rotation =
-      (velocity.x / Math.max(fighter.dashSpeed, 1)) * 0.07 + pose.rotation;
-    this.sprite.scale.set(
-      ((fighter.state === "dashing" ? 1.06 : 1) + lunge * 0.05) * pose.scaleX,
-      (1 - Math.min(speedRatio, 1) * 0.025 - Math.abs(lunge) * 0.02) *
-        pose.scaleY,
-    );
+    this.sprite.rotation = 0;
+    this.sprite.scale.set(frame.horizontalScale, 1);
 
-    this.updateFlash(deltaSeconds, fighter);
+    this.updateFlash(deltaSeconds);
 
     this.shadow.position.set(projection.shadow.x, projection.shadow.y);
     this.shadow.alpha = Math.max(0.35, 1 - position.elevation / 280);
@@ -118,70 +127,23 @@ export class FighterView {
     this.shadow.scale.set(shadowScale);
   }
 
-  /**
-   * Attack pose comes from the simulation's action frame, never from a Pixi
-   * clock, so it cannot drift away from the hitbox.
-   */
-  private attackLunge(fighter: FighterSnapshot): number {
-    if (fighter.actionDuration === 0) {
-      return 0;
-    }
-
-    switch (fighter.attackPhase) {
-      case "startup":
-        return -0.6 * (1 - fighter.actionFrame / Math.max(1, fighter.actionDuration));
-      case "active":
-        return 1;
-      case "recovery":
-        return 0.35;
-      default:
-        return 0;
-    }
-  }
-
-  private resolvePose(
-    fighter: FighterSnapshot,
-    lunge: number,
-  ): Readonly<{ rotation: number; scaleX: number; scaleY: number }> {
-    if (fighter.locomotion === "downed") {
-      return { rotation: Math.PI * 0.46, scaleX: 0.94, scaleY: 0.88 };
-    }
-
-    switch (fighter.attackId) {
-      case "mech-launcher":
-        return { rotation: -0.2 + lunge * 0.08, scaleX: 0.94, scaleY: 1.08 };
-      case "mech-air-1":
-        return { rotation: -0.12 + lunge * 0.16, scaleX: 1.06, scaleY: 0.96 };
-      case "mech-air-2":
-        return { rotation: 0.15 - lunge * 0.18, scaleX: 1.08, scaleY: 0.94 };
-      case "mech-finisher":
-        return { rotation: 0.28 + lunge * 0.1, scaleX: 0.93, scaleY: 1.1 };
-      default: {
-        const airTilt =
-          fighter.locomotion === "airborne"
-            ? Math.max(-0.12, Math.min(0.12, -fighter.body.verticalVelocity / 5_000))
-            : 0;
-        return { rotation: airTilt + lunge * 0.08, scaleX: 1, scaleY: 1 };
-      }
-    }
-  }
-
-  private updateFlash(deltaSeconds: number, fighter: FighterSnapshot): void {
+  private updateFlash(deltaSeconds: number): void {
     if (this.flashSeconds > 0) {
       this.flashSeconds = Math.max(0, this.flashSeconds - deltaSeconds);
     }
 
     const flashing = this.flashSeconds > 0;
-    const downed = fighter.health === 0;
     this.sprite.tint = flashing ? this.palette.flashTint : this.palette.bodyTint;
-    this.sprite.alpha = downed ? 0.55 : 1;
+    this.sprite.alpha = 1;
   }
 
-  private requireTexture(row: number, column: number): Texture {
-    const texture = this.textures[row * DIRECTIONAL_IDLE_FRAME_COUNT + column];
+  private requireTexture(sheet: MechAnimationSheet, frameIndex: number): Texture {
+    const texture = this.textures[sheet][frameIndex];
 
     if (texture === undefined) {
-      throw new RangeError(`Fighter texture is missing at row ${row}, column ${column}.`);
+      throw new RangeError(
+        `Fighter texture is missing in ${sheet} at frame ${frameIndex}.`,
+      );
     }
 
     return texture;

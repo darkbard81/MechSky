@@ -1,4 +1,5 @@
 import { HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID } from "../content/arenas/hangar-test";
+import { CombatAudio } from "../audio/combat-audio";
 import { PlayerInputController } from "../input/player-input";
 import { debugLayerForCode } from "../render/debug/debug-overlay";
 import { resolvePlatform } from "../platform/resolve-platform";
@@ -39,6 +40,7 @@ export class GameApp {
     maxCatchUpSteps: 5,
   });
   private readonly renderer = new PixiBattleRenderer();
+  private readonly audio = new CombatAudio();
   private readonly simulation = new SimulationWorld(HANGAR_TEST_BATTLE);
   private readonly input = new PlayerInputController(PLAYER_FIGHTER_ID);
   private readonly hud: DevelopmentHud;
@@ -95,6 +97,7 @@ export class GameApp {
     this.elements.fullscreenButton.removeEventListener("click", this.handleFullscreen);
     window.removeEventListener("keydown", this.handleDebugKey);
     this.input.destroy();
+    this.audio.destroy();
     this.renderer.destroy();
   }
 
@@ -116,7 +119,9 @@ export class GameApp {
     const simulationFrame = this.simulation.getFrame();
     const inputStatus = this.input.getStatus();
 
-    this.renderer.consume(this.simulation.drainEvents());
+    const events = this.simulation.drainEvents();
+    this.renderer.consume(events);
+    this.audio.consume(events);
     this.renderer.present(simulationFrame, advance.alpha, renderDeltaSeconds);
     this.renderer.render();
     this.hud.present({
