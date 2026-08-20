@@ -131,6 +131,8 @@ export class GameApp {
       enemyHealth: simulationFrame.current.enemy.health,
       enemyMaximumHealth: simulationFrame.current.enemy.maximumHealth,
       fighterState: simulationFrame.current.player.state,
+      locomotion: simulationFrame.current.player.locomotion,
+      homing: simulationFrame.current.player.homingTargetId !== null,
       inputControl: inputStatus.control,
       inputSource: inputStatus.source,
       locked: simulationFrame.current.player.lockedTargetId !== null,
@@ -138,6 +140,7 @@ export class GameApp {
       position: simulationFrame.current.player.body.position,
       tick: simulationFrame.current.tick,
       velocity: simulationFrame.current.player.body.velocity,
+      verticalVelocity: simulationFrame.current.player.body.verticalVelocity,
     });
 
     this.elements.surface.dataset["playerState"] =
@@ -146,12 +149,26 @@ export class GameApp {
       simulationFrame.current.player.body.position.x.toFixed(2);
     this.elements.surface.dataset["playerY"] =
       simulationFrame.current.player.body.position.y.toFixed(2);
+    this.elements.surface.dataset["playerElevation"] =
+      simulationFrame.current.player.body.position.elevation.toFixed(2);
+    this.elements.surface.dataset["playerLocomotion"] =
+      simulationFrame.current.player.locomotion;
+    this.elements.surface.dataset["playerAttack"] =
+      simulationFrame.current.player.attackId ?? "none";
+    this.elements.surface.dataset["playerActionFrame"] =
+      simulationFrame.current.player.actionFrame.toString();
+    this.elements.surface.dataset["playerAttackPhase"] =
+      simulationFrame.current.player.attackPhase ?? "none";
     this.elements.surface.dataset["enemyHealth"] =
       simulationFrame.current.enemy.health.toString();
     this.elements.surface.dataset["enemyX"] =
       simulationFrame.current.enemy.body.position.x.toFixed(2);
     this.elements.surface.dataset["enemyY"] =
       simulationFrame.current.enemy.body.position.y.toFixed(2);
+    this.elements.surface.dataset["enemyElevation"] =
+      simulationFrame.current.enemy.body.position.elevation.toFixed(2);
+    this.elements.surface.dataset["enemyLocomotion"] =
+      simulationFrame.current.enemy.locomotion;
     this.elements.surface.dataset["comboHits"] =
       simulationFrame.current.player.comboHits.toString();
 

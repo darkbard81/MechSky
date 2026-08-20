@@ -1,5 +1,8 @@
 import { Container, Graphics } from "pixi.js";
-import type { HitLandedEvent } from "../../sim/world/sim-event";
+import type {
+  GroundImpactEvent,
+  HitLandedEvent,
+} from "../../sim/world/sim-event";
 
 const SPARK_POOL_SIZE = 8;
 const SPARK_LIFETIME_SECONDS = 0.26;
@@ -47,6 +50,24 @@ export class ImpactEffects {
   }
 
   spawn(event: HitLandedEvent): void {
+    this.spawnAt(
+      event.x,
+      event.y - event.elevation,
+      0.85 + Math.min(event.severity, 1.4) * 0.5,
+      event.comboCount * 0.7,
+    );
+  }
+
+  spawnGroundImpact(event: GroundImpactEvent): void {
+    this.spawnAt(
+      event.x,
+      event.y,
+      1.45 + Math.min(event.severity, 2) * 0.55,
+      Math.PI / 8,
+    );
+  }
+
+  private spawnAt(x: number, y: number, scale: number, rotation: number): void {
     const spark = this.sparks[this.cursor];
     if (spark === undefined) {
       return;
@@ -54,11 +75,11 @@ export class ImpactEffects {
 
     this.cursor = (this.cursor + 1) % this.sparks.length;
     spark.ageSeconds = 0;
-    spark.scale = 0.85 + Math.min(event.severity, 1.4) * 0.5;
+    spark.scale = scale;
     spark.view.visible = true;
     spark.view.alpha = 1;
-    spark.view.position.set(event.x, event.y - event.elevation);
-    spark.view.rotation = event.comboCount * 0.7;
+    spark.view.position.set(x, y);
+    spark.view.rotation = rotation;
     spark.view.scale.set(spark.scale * 0.55);
   }
 

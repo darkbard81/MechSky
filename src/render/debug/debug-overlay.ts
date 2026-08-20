@@ -111,7 +111,13 @@ export class DebugOverlay {
       this.velocity
         .moveTo(position.x, position.y)
         .lineTo(position.x + velocity.x * 0.12, position.y + velocity.y * 0.12)
-        .stroke({ color: 0xffd166, width: 3, alpha: 0.9 });
+        .stroke({ color: 0xffd166, width: 3, alpha: 0.9 })
+        .moveTo(position.x, position.y - position.elevation)
+        .lineTo(
+          position.x,
+          position.y - position.elevation - fighter.body.verticalVelocity * 0.1,
+        )
+        .stroke({ color: 0x8be9fd, width: 3, alpha: 0.9 });
     }
   }
 

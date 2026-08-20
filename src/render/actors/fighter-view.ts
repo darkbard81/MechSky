@@ -6,6 +6,7 @@ import {
   resolveDirectionalIdleFrameAddress,
 } from "./directional-idle";
 import type { StageLayers } from "../stage-layers";
+import { projectFighter } from "./fighter-projection";
 
 export const MECH_FEET_ANCHOR_Y = 228 / 256;
 
@@ -86,29 +87,35 @@ export class FighterView {
 
   present(fighter: FighterSnapshot, tick: number, deltaSeconds: number): void {
     const { position, velocity } = fighter.body;
+    const projection = projectFighter(position);
 
-    this.root.position.set(position.x, position.y);
+    this.root.position.set(projection.actor.x, projection.actor.y);
     this.root.zIndex = actorGroundSortKey(fighter);
 
     const frame = resolveDirectionalIdleFrameAddress(fighter.facing, tick, fighter.state);
     this.sprite.texture = this.requireTexture(frame.row, frame.column);
-    this.sprite.position.y = -position.elevation;
+    this.sprite.position.y = projection.spriteOffsetY;
 
     const speedRatio = Math.min(
       Math.hypot(velocity.x, velocity.y) / Math.max(fighter.maximumSpeed, 1),
       1.5,
     );
     const lunge = fighter.actionKind === "attack" ? this.attackLunge(fighter) : 0;
-    this.sprite.rotation = (velocity.x / Math.max(fighter.dashSpeed, 1)) * 0.07 + lunge * 0.08;
+    const pose = this.resolvePose(fighter, lunge);
+    this.sprite.rotation =
+      (velocity.x / Math.max(fighter.dashSpeed, 1)) * 0.07 + pose.rotation;
     this.sprite.scale.set(
-      (fighter.state === "dashing" ? 1.06 : 1) + lunge * 0.05,
-      1 - Math.min(speedRatio, 1) * 0.025 - Math.abs(lunge) * 0.02,
+      ((fighter.state === "dashing" ? 1.06 : 1) + lunge * 0.05) * pose.scaleX,
+      (1 - Math.min(speedRatio, 1) * 0.025 - Math.abs(lunge) * 0.02) *
+        pose.scaleY,
     );
 
     this.updateFlash(deltaSeconds, fighter);
 
-    this.shadow.position.set(position.x, position.y + 3);
+    this.shadow.position.set(projection.shadow.x, projection.shadow.y);
     this.shadow.alpha = Math.max(0.35, 1 - position.elevation / 280);
+    const shadowScale = Math.max(0.62, 1 - position.elevation / 700);
+    this.shadow.scale.set(shadowScale);
   }
 
   /**
@@ -129,6 +136,33 @@ export class FighterView {
         return 0.35;
       default:
         return 0;
+    }
+  }
+
+  private resolvePose(
+    fighter: FighterSnapshot,
+    lunge: number,
+  ): Readonly<{ rotation: number; scaleX: number; scaleY: number }> {
+    if (fighter.locomotion === "downed") {
+      return { rotation: Math.PI * 0.46, scaleX: 0.94, scaleY: 0.88 };
+    }
+
+    switch (fighter.attackId) {
+      case "mech-launcher":
+        return { rotation: -0.2 + lunge * 0.08, scaleX: 0.94, scaleY: 1.08 };
+      case "mech-air-1":
+        return { rotation: -0.12 + lunge * 0.16, scaleX: 1.06, scaleY: 0.96 };
+      case "mech-air-2":
+        return { rotation: 0.15 - lunge * 0.18, scaleX: 1.08, scaleY: 0.94 };
+      case "mech-finisher":
+        return { rotation: 0.28 + lunge * 0.1, scaleX: 0.93, scaleY: 1.1 };
+      default: {
+        const airTilt =
+          fighter.locomotion === "airborne"
+            ? Math.max(-0.12, Math.min(0.12, -fighter.body.verticalVelocity / 5_000))
+            : 0;
+        return { rotation: airTilt + lunge * 0.08, scaleX: 1, scaleY: 1 };
+      }
     }
   }
 

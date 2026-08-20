@@ -15,7 +15,10 @@ export interface FighterRecipe {
   readonly bodyHeight: number;
   readonly health: number;
   readonly movement: MovementRecipe;
-  readonly chainId: string;
+  readonly attackChains: {
+    readonly grounded: readonly (string | null)[];
+    readonly airborne: readonly (string | null)[];
+  };
 }
 
 export interface CombatRecipe {
@@ -25,6 +28,12 @@ export interface CombatRecipe {
   /** Idle frames after the last connect before the combo counter resets. */
   readonly comboResetFrames: number;
   readonly hitstunFriction: number;
+  readonly gravity: number;
+  readonly maximumFallSpeed: number;
+  readonly homingDurationTicks: number;
+  readonly homingSpeed: number;
+  readonly homingVerticalSpeed: number;
+  readonly downedFrames: number;
 }
 
 export interface BattleRecipe {

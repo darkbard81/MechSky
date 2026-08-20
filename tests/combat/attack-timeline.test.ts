@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  MECH_ATTACK_LIBRARY,
-  MECH_GROUND_CHAIN_ID,
-} from "../../src/content/attacks/mech-ground-combo";
+import { MECH_ATTACK_LIBRARY } from "../../src/content/attacks/mech-attack-library";
+import { MECH_GROUND_CHAIN_ID } from "../../src/content/attacks/mech-ground-combo";
 import {
   attackDuration,
   validateAttackDefinition,

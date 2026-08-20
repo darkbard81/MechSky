@@ -41,9 +41,15 @@ const NUMPAD_FALLBACK_BY_KEY: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const DASH_CODES = new Set(["ShiftLeft", "ShiftRight"]);
-const ATTACK_CODES = new Set(["KeyJ"]);
+const ATTACK_SLOT_BY_CODE: Readonly<Record<string, number>> = Object.freeze({
+  KeyJ: 0,
+  KeyK: 1,
+});
 const LOCK_CODE = "Tab";
-const MELEE_SLOT = 0;
+
+export function attackSlotForCode(code: string): number | null {
+  return ATTACK_SLOT_BY_CODE[code] ?? null;
+}
 
 export type InputSource = "keyboard" | "gamepad";
 export type InputControl = "WASD" | "ARROWS" | "NUMPAD" | "KEYBOARD" | "LEFT STICK";
@@ -57,7 +63,7 @@ export function resolveKeyboardCode(event: Pick<KeyboardEvent, "code" | "key" | 
   if (
     event.code in DIRECTION_BY_CODE ||
     DASH_CODES.has(event.code) ||
-    ATTACK_CODES.has(event.code) ||
+    attackSlotForCode(event.code) !== null ||
     event.code === LOCK_CODE
   ) {
     return event.code;
@@ -133,10 +139,11 @@ function buttonPressed(gamepad: Gamepad, index: number): boolean {
 
 export class PlayerInputController {
   private readonly pressedCodes = new Set<string>();
-  private attackQueued = false;
+  private attackQueuedSlot: number | null = null;
   private dashQueued = false;
   private lockQueued = false;
   private previousAttackButton = false;
+  private previousSpecialButton = false;
   private previousDashButton = false;
   private previousLockButton = false;
   private status: InputStatus = { source: "keyboard", control: "WASD" };
@@ -165,9 +172,13 @@ export class PlayerInputController {
       { type: "move", fighterId: this.fighterId, direction: move },
     ];
 
-    if (this.attackQueued) {
-      intents.push({ type: "attack", fighterId: this.fighterId, slot: MELEE_SLOT });
-      this.attackQueued = false;
+    if (this.attackQueuedSlot !== null) {
+      intents.push({
+        type: "attack",
+        fighterId: this.fighterId,
+        slot: this.attackQueuedSlot,
+      });
+      this.attackQueuedSlot = null;
     }
 
     if (this.dashQueued) {
@@ -203,6 +214,7 @@ export class PlayerInputController {
 
     if (gamepad === undefined || gamepad === null) {
       this.previousAttackButton = false;
+      this.previousSpecialButton = false;
       this.previousDashButton = false;
       this.previousLockButton = false;
       return { ...ZERO_VECTOR };
@@ -213,11 +225,16 @@ export class PlayerInputController {
       gamepad.axes[1] ?? 0,
     );
     const attackButton = buttonPressed(gamepad, 0);
+    const specialButton = buttonPressed(gamepad, 2);
     const dashButton = buttonPressed(gamepad, 1);
     const lockButton = buttonPressed(gamepad, 4);
 
     if (attackButton && !this.previousAttackButton) {
-      this.attackQueued = true;
+      this.attackQueuedSlot = 0;
+    }
+
+    if (specialButton && !this.previousSpecialButton) {
+      this.attackQueuedSlot = 1;
     }
 
     if (dashButton && !this.previousDashButton) {
@@ -228,11 +245,18 @@ export class PlayerInputController {
       this.lockQueued = true;
     }
 
-    if (vectorLength(move) > 0 || attackButton || dashButton || lockButton) {
+    if (
+      vectorLength(move) > 0 ||
+      attackButton ||
+      specialButton ||
+      dashButton ||
+      lockButton
+    ) {
       this.status = { source: "gamepad", control: "LEFT STICK" };
     }
 
     this.previousAttackButton = attackButton;
+    this.previousSpecialButton = specialButton;
     this.previousDashButton = dashButton;
     this.previousLockButton = lockButton;
     return move;
@@ -242,7 +266,7 @@ export class PlayerInputController {
     const code = resolveKeyboardCode(event);
     const isDirection = code in DIRECTION_BY_CODE;
     const isAction =
-      DASH_CODES.has(code) || ATTACK_CODES.has(code) || code === LOCK_CODE;
+      DASH_CODES.has(code) || attackSlotForCode(code) !== null || code === LOCK_CODE;
 
     if (!isDirection && !isAction) {
       return;
@@ -255,8 +279,8 @@ export class PlayerInputController {
       this.pressedCodes.add(code);
     } else if (event.repeat) {
       // Held buttons must not refill the buffer every frame.
-    } else if (ATTACK_CODES.has(code)) {
-      this.attackQueued = true;
+    } else if (attackSlotForCode(code) !== null) {
+      this.attackQueuedSlot = attackSlotForCode(code);
     } else if (DASH_CODES.has(code)) {
       this.dashQueued = true;
     } else if (code === LOCK_CODE) {
@@ -269,7 +293,7 @@ export class PlayerInputController {
     if (
       code in DIRECTION_BY_CODE ||
       DASH_CODES.has(code) ||
-      ATTACK_CODES.has(code) ||
+      attackSlotForCode(code) !== null ||
       code === LOCK_CODE
     ) {
       event.preventDefault();
@@ -285,10 +309,11 @@ export class PlayerInputController {
 
   private readonly clearHeldInput = (): void => {
     this.pressedCodes.clear();
-    this.attackQueued = false;
+    this.attackQueuedSlot = null;
     this.dashQueued = false;
     this.lockQueued = false;
     this.previousAttackButton = false;
+    this.previousSpecialButton = false;
     this.previousDashButton = false;
     this.previousLockButton = false;
   };

@@ -34,6 +34,11 @@ function interpolateFighter(
         x: lerp(previous.body.velocity.x, current.body.velocity.x, alpha),
         y: lerp(previous.body.velocity.y, current.body.velocity.y, alpha),
       },
+      verticalVelocity: lerp(
+        previous.body.verticalVelocity,
+        current.body.verticalVelocity,
+        alpha,
+      ),
     },
   };
 }

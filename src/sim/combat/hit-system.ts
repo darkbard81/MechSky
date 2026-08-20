@@ -90,6 +90,11 @@ export class HitResolver {
         push.x === 0 && push.y === 0 ? { ...attacker.facing } : push;
       target.body.velocity.x = direction.x * definition.knockback;
       target.body.velocity.y = direction.y * definition.knockback;
+      if (definition.launchVelocity !== 0) {
+        target.body.verticalVelocity = definition.launchVelocity;
+        target.locomotion = "airborne";
+      }
+      target.groundSlamPending ||= definition.groundSlam;
 
       beginHitstun(target, definition.hitStunFrames);
       target.hitStopFrames = definition.hitStopFrames;

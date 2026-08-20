@@ -16,9 +16,12 @@ export interface CombatBody extends WorldPosition {
 export interface Body {
   readonly position: WorldPosition;
   readonly velocity: Vector2;
+  verticalVelocity: number;
   readonly radius: number;
   readonly bodyHeight: number;
 }
+
+export type LocomotionState = "grounded" | "airborne" | "downed";
 
 export type FighterState =
   | "idle"
@@ -37,6 +40,8 @@ export type ActionKind = "none" | "attack" | "hitstun";
 export interface ActionState {
   kind: ActionKind;
   attackId: string | null;
+  /** Combo chain that owns the current attack. */
+  chainId: string | null;
   /** Frames elapsed inside the current action. Frozen while hit-stopped. */
   frame: number;
   /** Whether the current attack has already connected. */
@@ -68,22 +73,31 @@ export interface Fighter {
   dashReadyTick: number;
   dashSequence: number;
   lockedTargetId: EntityId | null;
+  locomotion: LocomotionState;
   state: FighterState;
   action: ActionState;
   /** Action-clock freeze from a connect. World ticks on; this actor does not. */
   hitStopFrames: number;
   /** Remaining life of a buffered attack request, in frames. */
   attackBufferFrames: number;
+  bufferedAttackSlot: number | null;
   comboHits: number;
   comboResetFrames: number;
-  /** Chain this fighter uses for its attack button. */
-  readonly chainId: string;
+  readonly attackChains: {
+    readonly grounded: readonly (string | null)[];
+    readonly airborne: readonly (string | null)[];
+  };
+  homingTargetId: EntityId | null;
+  homingEndExclusiveTick: number;
+  groundSlamPending: boolean;
+  downedFrames: number;
 }
 
 export function createIdleAction(): ActionState {
   return {
     kind: "none",
     attackId: null,
+    chainId: null,
     frame: 0,
     hasConnected: false,
     chainIndex: -1,

@@ -16,6 +16,7 @@ import {
 } from "./actors/fighter-view";
 import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
 import { CameraShake } from "./camera/camera-shake";
+import { resolveBattleCameraTarget } from "./camera/battle-camera-target";
 import { SmoothCamera } from "./camera/smooth-camera";
 import { DebugOverlay, type DebugLayerName } from "./debug/debug-overlay";
 import { ImpactEffects } from "./effects/impact-effects";
@@ -140,6 +141,8 @@ export class BattleScene {
   private readonly arenaCenter: Readonly<{ x: number; y: number }>;
   private readonly arenaRadius: number;
   private readonly maximumCameraLookAhead: number;
+  private readonly playerId: number;
+  private readonly enemyId: number;
   private layout: BattleLayout = calculateBattleLayout(1, 1);
   private afterimageCursor = 0;
   private afterimageAccumulator = 0;
@@ -153,6 +156,8 @@ export class BattleScene {
     this.arenaCenter = { ...initialSnapshot.arena.center };
     this.arenaRadius = initialSnapshot.arena.radius;
     this.maximumCameraLookAhead = initialSnapshot.player.dashSpeed * 0.075;
+    this.playerId = initialSnapshot.player.id;
+    this.enemyId = initialSnapshot.enemy.id;
 
     const idleTextures = createDirectionalIdleTextures(assets.playerMechIdle);
     this.playerView = new FighterView(layers, idleTextures, PLAYER_PALETTE, "Player mech");
@@ -213,13 +218,20 @@ export class BattleScene {
   /** Consumes simulation events. The scene never reads combat state directly. */
   consume(events: readonly SimEvent[]): void {
     for (const event of events) {
-      if (event.type !== "hit-landed") {
-        continue;
+      switch (event.type) {
+        case "hit-landed":
+          this.impacts.spawn(event);
+          this.fighterViewForId(event.targetId)?.flash();
+          this.shake.add(0.22 + Math.min(event.severity, 1.2) * 0.28);
+          break;
+        case "ground-impact":
+          this.impacts.spawnGroundImpact(event);
+          this.fighterViewForId(event.fighterId)?.flash();
+          this.shake.add(0.62 + Math.min(event.severity, 1.5) * 0.2);
+          break;
+        default:
+          break;
       }
-
-      this.impacts.spawn(event);
-      this.enemyView.flash();
-      this.shake.add(0.22 + Math.min(event.severity, 1.2) * 0.28);
     }
   }
 
@@ -245,12 +257,15 @@ export class BattleScene {
     this.shake.advance(safeDelta);
     this.debug.present(snapshot);
 
-    const { position, velocity } = player.body;
-    this.camera.follow(
-      { x: position.x + velocity.x * 0.075, y: position.y + velocity.y * 0.045 },
-      safeDelta,
-    );
+    this.camera.follow(resolveBattleCameraTarget(snapshot), safeDelta);
     this.applyCameraTransform();
+  }
+
+  private fighterViewForId(id: number): FighterView | null {
+    if (id === this.playerId) {
+      return this.playerView;
+    }
+    return id === this.enemyId ? this.enemyView : null;
   }
 
   private presentDashEffects(snapshot: SimulationSnapshot, deltaSeconds: number): void {
@@ -284,7 +299,10 @@ export class BattleScene {
 
     this.boostTrail.visible = dashing;
     if (dashing) {
-      this.boostTrail.position.set(position.x, position.y - 72);
+      this.boostTrail.position.set(
+        position.x,
+        position.y - position.elevation - 72,
+      );
       this.boostTrail.rotation = Math.atan2(velocity.y, velocity.x);
       this.boostTrail.alpha = 0.72 + Math.sin(snapshot.elapsedSeconds * 50) * 0.14;
     }

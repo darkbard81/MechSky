@@ -35,6 +35,16 @@ npm run check
 npm run build
 ```
 
+M3 공중 콤보는 개발 서버에서 적에게 접근한 뒤 다음 순서로 확인한다.
+
+```text
+J → J → K → Shift → J → J → K
+```
+
+`K`는 지상에서 Launcher, 공중에서 Finisher이며 gamepad에서는 `X`다. `Shift`/`B`는
+공중에 뜬 적이 있을 때 homing chase로 전환된다. CDP 입력 재현은 이미 remote debugging
+상태로 열린 Chromium에 `npm run demo:m3`를 실행한다.
+
 `npm run check`는 ESLint, renderer/Electron TypeScript 검사, simulation 단위 테스트를
 순서대로 실행한다. ESLint는 `src/sim`에서 PixiJS, Electron, DOM, render/UI import를
 금지하여 simulation 경계를 유지한다.

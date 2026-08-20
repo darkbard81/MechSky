@@ -1,8 +1,8 @@
 import type { FighterRecipe } from "../../sim/world/battle-recipe";
 
 /**
- * M2 training target: it takes hits, reacts, and reports health, but it does
- * not act. Enemy AI arrives in M5.
+ * Vertical-slice training target: it can be launched, juggled, knocked down,
+ * and wake up, but it does not act. Enemy AI arrives in M5.
  */
 export const ENEMY_MECH_ID = 2;
 
@@ -12,7 +12,10 @@ export const ENEMY_MECH = {
   radius: 30,
   bodyHeight: 112,
   health: 900,
-  chainId: "enemy-none",
+  attackChains: {
+    grounded: [null, null],
+    airborne: [null, null],
+  },
   movement: {
     acceleration: 900,
     deceleration: 1_500,

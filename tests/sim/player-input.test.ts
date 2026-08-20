@@ -1,11 +1,60 @@
 import { describe, expect, it } from "vitest";
 import {
   applyGamepadDeadzone,
+  attackSlotForCode,
   keyboardMoveVector,
+  PlayerInputController,
   resolveKeyboardCode,
 } from "../../src/input/player-input";
 
 describe("player input mapping", () => {
+  it("maps J and K to primary and launcher or finisher slots", () => {
+    expect(attackSlotForCode("KeyJ")).toBe(0);
+    expect(attackSlotForCode("KeyK")).toBe(1);
+    expect(attackSlotForCode("KeyL")).toBeNull();
+  });
+
+  it("emits gamepad X as slot 1 on the rising edge", () => {
+    const eventWindow = new EventTarget() as Window;
+    const eventDocument = new EventTarget() as Document;
+    let pressed = true;
+    const gamepad = {
+      axes: [0, 0],
+      buttons: Array.from({ length: 5 }, (_, index) => ({
+        pressed: index === 2 && pressed,
+      })),
+      connected: true,
+    } as unknown as Gamepad;
+    const controller = new PlayerInputController(
+      1,
+      eventWindow,
+      eventDocument,
+      () => [
+        {
+          ...gamepad,
+          buttons: Array.from({ length: 5 }, (_, index) => ({
+            pressed: index === 2 && pressed,
+          })) as unknown as readonly GamepadButton[],
+        },
+      ],
+    );
+
+    expect(controller.sampleIntents()).toContainEqual({
+      type: "attack",
+      fighterId: 1,
+      slot: 1,
+    });
+    expect(controller.sampleIntents()).not.toContainEqual(
+      expect.objectContaining({ type: "attack" }),
+    );
+    pressed = false;
+    controller.sampleIntents();
+    pressed = true;
+    expect(controller.sampleIntents()).toContainEqual(
+      expect.objectContaining({ type: "attack", slot: 1 }),
+    );
+    controller.destroy();
+  });
   it.each([
     ["KeyW", "ArrowUp", "Numpad8", { x: 0, y: -1 }],
     ["KeyS", "ArrowDown", "Numpad2", { x: 0, y: 1 }],

@@ -1,7 +1,12 @@
 import type { PlatformKind } from "../../platform/platform";
 import type { InputControl, InputSource } from "../../input/player-input";
 import type { Vector2 } from "../../sim/math/vector2";
-import type { ActionKind, FighterState, WorldPosition } from "../../sim/world/entity";
+import type {
+  ActionKind,
+  FighterState,
+  LocomotionState,
+  WorldPosition,
+} from "../../sim/world/entity";
 import type { AttackPhase } from "../../sim/combat/attack-timeline";
 
 export interface DevelopmentHudElements {
@@ -39,6 +44,8 @@ export interface DevelopmentHudState {
   readonly enemyHealth: number;
   readonly enemyMaximumHealth: number;
   readonly fighterState: FighterState;
+  readonly locomotion: LocomotionState;
+  readonly homing: boolean;
   readonly inputControl: InputControl;
   readonly inputSource: InputSource;
   readonly locked: boolean;
@@ -46,6 +53,7 @@ export interface DevelopmentHudState {
   readonly position: Readonly<WorldPosition>;
   readonly tick: number;
   readonly velocity: Readonly<Vector2>;
+  readonly verticalVelocity: number;
 }
 
 export class DevelopmentHud {
@@ -72,7 +80,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "이동은 WASD·방향키·NumPad 또는 왼쪽 스틱, J/A로 공격, Shift/B로 Dash, Tab/LB로 Lock합니다. J를 다시 눌러 2타로 잇습니다.";
+      "J → J → K → Shift → J → J → K로 지상 2타, Launcher, 공중 추격, Finisher를 연결합니다.";
   }
 
   failed(message: string): void {
@@ -95,9 +103,9 @@ export class DevelopmentHud {
 
     this.lastTick = state.tick;
     this.elements.simTick.textContent = state.tick.toString();
-    this.elements.playerPosition.textContent = `${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)}`;
-    this.elements.playerVelocity.textContent = `${state.velocity.x.toFixed(1)}, ${state.velocity.y.toFixed(1)}`;
-    this.elements.playerState.textContent = state.fighterState.toUpperCase();
+    this.elements.playerPosition.textContent = `${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)}, Z ${state.position.elevation.toFixed(1)}`;
+    this.elements.playerVelocity.textContent = `${state.velocity.x.toFixed(1)}, ${state.velocity.y.toFixed(1)}, Z ${state.verticalVelocity.toFixed(1)}`;
+    this.elements.playerState.textContent = `${state.locomotion.toUpperCase()} · ${state.fighterState.toUpperCase()}${state.homing ? " · HOMING" : ""}`;
     this.elements.dashCooldown.textContent =
       state.dashCooldownTicks === 0
         ? "READY"

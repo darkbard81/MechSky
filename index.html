@@ -27,7 +27,7 @@
           <div id="game-surface"></div>
           <div id="boot-overlay" class="boot-overlay" aria-live="assertive">
             <div class="boot-card">
-              <p class="boot-kicker">M1 // ARENA LINK</p>
+              <p class="boot-kicker">M3 // AIR COMBAT LINK</p>
               <div class="boot-title-row">
                 <h2>전투 자산 동기화</h2>
                 <strong id="loading-percent">0%</strong>
@@ -96,19 +96,20 @@
           </div>
           <div class="control-guide" aria-label="이동 조작 안내">
             <span><kbd>WASD</kbd> / <kbd>↑←↓→</kbd> / <kbd>NUM 1–9</kbd> 이동</span>
-            <span><kbd>J</kbd> 공격</span>
-            <span><kbd>SHIFT</kbd> DASH</span>
+            <span><kbd>J</kbd> 주 공격 / 공중 2타</span>
+            <span><kbd>K</kbd> LAUNCHER / FINISHER</span>
+            <span><kbd>SHIFT</kbd> DASH / HOMING CHASE</span>
             <span><kbd>TAB</kbd> LOCK</span>
             <span><kbd>F1</kbd>/<kbd>F2</kbd>/<kbd>F4</kbd>/<kbd>F7</kbd> DEBUG</span>
           </div>
         </section>
 
         <aside class="architecture-panel">
-          <p class="panel-kicker">M1 // MOVEMENT TEST</p>
-          <h2>이동 가능한 Arena</h2>
+          <p class="panel-kicker">M3 // AIR COMBO TEST</p>
+          <h2>Elevation 전투 경로</h2>
           <p>
-            입력은 60 Hz tick 경계에서 intent로 소비됩니다. 가속·감속·대시와
-            원형 경계 충돌은 simulation이 계산하고 Pixi는 snapshot만 보간합니다.
+            Launcher와 공중 추격, 2타, Finisher, Ground Slam을 60 Hz simulation이
+            계산합니다. 그림자는 지면에 남고 sprite만 elevation만큼 올라갑니다.
           </p>
           <dl class="runtime-grid">
             <div>
@@ -116,8 +117,8 @@
               <dd>Fixed 60 Hz</dd>
             </div>
             <div>
-              <dt>Movement</dt>
-              <dd>Circle bounds + Dash</dd>
+              <dt>Combat</dt>
+              <dd>2D plane + Elevation</dd>
             </div>
             <div>
               <dt>Reference</dt>

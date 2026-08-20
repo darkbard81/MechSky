@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1·M2 완료, M3 대기
+> 상태: M0·M1·M2·M3 완료, M4 대기
 
 ## 1. 목표
 
@@ -390,6 +390,28 @@ outline을 사용한다.
 
 - 전체 콤보 무편집 clip
 - elevation, gravity, height overlap, landing, knockdown 단위 테스트
+
+완료 기록 (2026-08-20):
+
+- [`전체 공중 콤보와 Ground Slam clip`](./evidence/m3/air-combo-ground-slam.mp4)
+- [`Launcher 공중 분리`](./evidence/m3/launcher-airborne.png)
+- [`Homing chase`](./evidence/m3/homing-chase.png)
+- [`공중 2타`](./evidence/m3/air-combo.png)
+- [`Finisher Ground Slam`](./evidence/m3/ground-slam.png)
+- [`M3 검증 기록`](./evidence/m3/README.md)
+- 사용자가 실제 실행 화면에서 M3 가시 완료 조건을 모두 확인
+
+- `J → J → K → Shift → J → J → K` 입력을 지상 2타, launcher, homing chase,
+  공중 2타, finisher에 연결
+- `verticalVelocity`, gravity, 최대 낙하 속도, grounded/airborne/downed,
+  ground impact, 48-tick knockdown과 wake-up을 simulation 상태로 구현
+- 지상·공중 attack chain을 슬롯별 데이터 모듈로 분리하고 모든 판정을 평면 겹침과
+  높이 구간 겹침으로 유지
+- 그림자는 ground `(x, y)`에 고정하고 sprite/boost trail만 elevation을 반영하며,
+  공중 전투 camera framing과 ground-impact shake를 snapshot/event에서 파생
+- 전체 6타 경로, 정상 landing, 지상·공중 공격의 높이 miss, render projection/camera/input,
+  60/120/144 Hz 및 50 ms catch-up 결정성 테스트를 포함해 전체 80개 테스트 통과
+- `npm run build`의 check, web build, Electron build 통과
 
 ### M4. `mech.png` 기반 최종 action art와 손맛
 

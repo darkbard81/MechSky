@@ -39,9 +39,41 @@ export interface TargetDefeatedEvent {
   readonly targetId: EntityId;
 }
 
+export interface HomingStartedEvent {
+  readonly type: "homing-started";
+  readonly fighterId: EntityId;
+  readonly targetId: EntityId;
+}
+
+export interface FighterLandedEvent {
+  readonly type: "fighter-landed";
+  readonly fighterId: EntityId;
+  readonly x: number;
+  readonly y: number;
+  readonly impactSpeed: number;
+}
+
+export interface GroundImpactEvent {
+  readonly type: "ground-impact";
+  readonly fighterId: EntityId;
+  readonly x: number;
+  readonly y: number;
+  readonly impactSpeed: number;
+  readonly severity: number;
+}
+
+export interface FighterWokeUpEvent {
+  readonly type: "fighter-woke-up";
+  readonly fighterId: EntityId;
+}
+
 export type SimEvent =
   | AttackStartedEvent
   | AttackWhiffedEvent
   | ComboEndedEvent
+  | FighterLandedEvent
+  | FighterWokeUpEvent
+  | GroundImpactEvent
+  | HomingStartedEvent
   | HitLandedEvent
   | TargetDefeatedEvent;

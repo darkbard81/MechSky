@@ -1,4 +1,8 @@
-import { MECH_ATTACK_LIBRARY, MECH_GROUND_CHAIN_ID } from "../attacks/mech-ground-combo";
+import { MECH_AIR_CHAIN_ID } from "../attacks/mech-air-combo";
+import { MECH_ATTACK_LIBRARY } from "../attacks/mech-attack-library";
+import { MECH_FINISHER_CHAIN_ID } from "../attacks/mech-finisher";
+import { MECH_GROUND_CHAIN_ID } from "../attacks/mech-ground-combo";
+import { MECH_LAUNCHER_CHAIN_ID } from "../attacks/mech-launcher";
 import { ENEMY_MECH, ENEMY_MECH_ID } from "../actors/enemy-mech";
 import type { BattleRecipe } from "../../sim/world/battle-recipe";
 
@@ -16,7 +20,10 @@ export const HANGAR_TEST_BATTLE: BattleRecipe = Object.freeze({
     radius: 28,
     bodyHeight: 112,
     health: 1_000,
-    chainId: MECH_GROUND_CHAIN_ID,
+    attackChains: {
+      grounded: [MECH_GROUND_CHAIN_ID, MECH_LAUNCHER_CHAIN_ID],
+      airborne: [MECH_AIR_CHAIN_ID, MECH_FINISHER_CHAIN_ID],
+    },
     movement: {
       acceleration: 1_050,
       deceleration: 1_350,
@@ -32,5 +39,11 @@ export const HANGAR_TEST_BATTLE: BattleRecipe = Object.freeze({
     inputBufferFrames: 9,
     comboResetFrames: 45,
     hitstunFriction: 900,
+    gravity: 1_200,
+    maximumFallSpeed: 1_050,
+    homingDurationTicks: 24,
+    homingSpeed: 720,
+    homingVerticalSpeed: 840,
+    downedFrames: 48,
   },
 });

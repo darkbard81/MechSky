@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID } from "../../src/content/arenas/hangar-test";
 import { actorGroundSortKey } from "../../src/render/actors/ground-sort";
 import { SmoothCamera } from "../../src/render/camera/smooth-camera";
+import { resolveBattleCameraTarget } from "../../src/render/camera/battle-camera-target";
 import { interpolateSimulationFrame } from "../../src/render/snapshot-interpolation";
 import { SimulationWorld } from "../../src/sim/world/world";
 
@@ -24,6 +25,11 @@ describe("snapshot presentation", () => {
     );
     expect(halfway.player.body.velocity.x).toBeCloseTo(
       frame.current.player.body.velocity.x / 2,
+    );
+    expect(halfway.player.body.verticalVelocity).toBeCloseTo(
+      (frame.previous.player.body.verticalVelocity +
+        frame.current.player.body.verticalVelocity) /
+        2,
     );
     expect(halfway.player.state).toBe(frame.current.player.state);
   });
@@ -52,5 +58,37 @@ describe("snapshot presentation", () => {
     expect(afterTwoTenths.x).toBeGreaterThan(afterOneTenth.x);
     expect(afterTwoTenths.x).toBeLessThan(200);
     expect(afterTwoTenths.y).toBe(40);
+  });
+
+  it("frames both fighters upward while either fighter is airborne", () => {
+    const world = new SimulationWorld(HANGAR_TEST_BATTLE);
+    const grounded = world.getFrame().current;
+    const airborne = {
+      ...grounded,
+      player: {
+        ...grounded.player,
+        locomotion: "airborne" as const,
+        body: {
+          ...grounded.player.body,
+          position: { ...grounded.player.body.position, elevation: 180 },
+        },
+      },
+      enemy: {
+        ...grounded.enemy,
+        locomotion: "airborne" as const,
+        body: {
+          ...grounded.enemy.body,
+          position: { ...grounded.enemy.body.position, elevation: 240 },
+        },
+      },
+    };
+
+    const groundTarget = resolveBattleCameraTarget(grounded);
+    const airTarget = resolveBattleCameraTarget(airborne);
+
+    expect(airTarget.x).toBeCloseTo(
+      (airborne.player.body.position.x + airborne.enemy.body.position.x) / 2,
+    );
+    expect(airTarget.y).toBeLessThan(groundTarget.y);
   });
 });

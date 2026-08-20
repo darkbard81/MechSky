@@ -5,6 +5,7 @@ import type { Fighter } from "../world/entity";
 
 export interface AttackStart {
   readonly attackId: string;
+  readonly chainId: string;
   readonly chainIndex: number;
 }
 
@@ -29,6 +30,14 @@ function chainAttackId(
   return library.chains[chainId]?.attacks[index];
 }
 
+function boundChainId(fighter: Fighter, slot: number): string | null {
+  const bindings =
+    fighter.locomotion === "airborne"
+      ? fighter.attackChains.airborne
+      : fighter.attackChains.grounded;
+  return bindings[slot] ?? null;
+}
+
 /** A fighter can open a new attack only from a neutral, unlocked action. */
 function isActionable(fighter: Fighter): boolean {
   return fighter.action.kind === "none" && fighter.hitStopFrames === 0;
@@ -43,13 +52,26 @@ export function resolveAttackStart(
   fighter: Fighter,
   library: AttackLibrary,
 ): AttackStart | null {
-  if (fighter.attackBufferFrames <= 0 || fighter.hitStopFrames > 0) {
+  const slot = fighter.bufferedAttackSlot;
+  if (
+    fighter.attackBufferFrames <= 0 ||
+    fighter.hitStopFrames > 0 ||
+    slot === null ||
+    fighter.locomotion === "downed"
+  ) {
+    return null;
+  }
+
+  const requestedChainId = boundChainId(fighter, slot);
+  if (requestedChainId === null) {
     return null;
   }
 
   if (isActionable(fighter)) {
-    const attackId = chainAttackId(library, fighter.chainId, 0);
-    return attackId === undefined ? null : { attackId, chainIndex: 0 };
+    const attackId = chainAttackId(library, requestedChainId, 0);
+    return attackId === undefined
+      ? null
+      : { attackId, chainId: requestedChainId, chainIndex: 0 };
   }
 
   if (fighter.action.kind !== "attack" || fighter.action.attackId === null) {
@@ -57,8 +79,9 @@ export function resolveAttackStart(
   }
 
   const current = requireAttack(library, fighter.action.attackId);
-  const nextIndex = fighter.action.chainIndex + 1;
-  const nextId = chainAttackId(library, fighter.chainId, nextIndex);
+  const sameChain = fighter.action.chainId === requestedChainId;
+  const nextIndex = sameChain ? fighter.action.chainIndex + 1 : 0;
+  const nextId = chainAttackId(library, requestedChainId, nextIndex);
 
   if (nextId === undefined) {
     return null;
@@ -69,23 +92,26 @@ export function resolveAttackStart(
     return null;
   }
 
-  return { attackId: nextId, chainIndex: nextIndex };
+  return { attackId: nextId, chainId: requestedChainId, chainIndex: nextIndex };
 }
 
 export function beginAttack(fighter: Fighter, start: AttackStart): void {
   fighter.action.kind = "attack";
   fighter.action.attackId = start.attackId;
+  fighter.action.chainId = start.chainId;
   fighter.action.frame = 0;
   fighter.action.hasConnected = false;
   fighter.action.chainIndex = start.chainIndex;
   fighter.action.hitTargets.clear();
   fighter.state = "attacking";
   fighter.attackBufferFrames = 0;
+  fighter.bufferedAttackSlot = null;
 }
 
 export function clearAction(fighter: Fighter): void {
   fighter.action.kind = "none";
   fighter.action.attackId = null;
+  fighter.action.chainId = null;
   fighter.action.frame = 0;
   fighter.action.hasConnected = false;
   fighter.action.chainIndex = -1;
@@ -95,6 +121,7 @@ export function clearAction(fighter: Fighter): void {
 export function beginHitstun(fighter: Fighter, frames: number): void {
   fighter.action.kind = "hitstun";
   fighter.action.attackId = null;
+  fighter.action.chainId = null;
   fighter.action.frame = 0;
   fighter.action.hasConnected = false;
   fighter.action.chainIndex = frames;

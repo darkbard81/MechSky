@@ -33,6 +33,12 @@ export interface AttackDefinition {
   /** Action-clock freeze applied to attacker and victim on a connect. */
   readonly hitStopFrames: number;
   readonly knockback: number;
+  /** Vertical velocity assigned to the victim on connect. Zero keeps its current value. */
+  readonly launchVelocity: number;
+  /** Vertical velocity assigned to the attacker when the action begins. */
+  readonly selfVerticalVelocity: number;
+  /** The victim enters knockdown when this attack drives it into the ground. */
+  readonly groundSlam: boolean;
   /** Forward lunge applied to the attacker on startup. */
   readonly forwardImpulse: number;
   readonly hitbox: AttackHitboxSpec;
@@ -94,6 +100,21 @@ export function validateAttackDefinition(definition: AttackDefinition): void {
     definition.hitStopFrames < 0
   ) {
     throw new RangeError(`Attack '${definition.id}' has invalid stun or stop frames.`);
+  }
+
+  if (
+    !Number.isFinite(definition.knockback) ||
+    definition.knockback < 0 ||
+    !Number.isFinite(definition.launchVelocity) ||
+    !Number.isFinite(definition.selfVerticalVelocity)
+  ) {
+    throw new RangeError(`Attack '${definition.id}' has invalid movement values.`);
+  }
+
+  if (definition.groundSlam && definition.launchVelocity >= 0) {
+    throw new RangeError(
+      `Attack '${definition.id}' must use negative launch velocity for a ground slam.`,
+    );
   }
 
   const { hitbox } = definition;
