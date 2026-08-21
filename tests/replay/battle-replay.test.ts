@@ -4,6 +4,7 @@ import {
   PLAYER_FIGHTER_ID,
 } from "../../src/content/arenas/hangar-test";
 import {
+  BATTLE_REPLAY_VERSION,
   createBattleReplay,
   parseBattleReplay,
   runBattleReplay,
@@ -48,6 +49,28 @@ describe("battle replay", () => {
     ]);
 
     expect(parseBattleReplay(serializeBattleReplay(replay))).toEqual(replay);
+  });
+
+  it("migrates a v1 recipe that predates homing stop distance", () => {
+    const {
+      homingStopDistance,
+      ...legacyCombat
+    } = AIR_COMBO_REPLAY.recipe.combat;
+    const migrated = parseBattleReplay({
+      ...AIR_COMBO_REPLAY,
+      version: 1,
+      recipe: {
+        ...AIR_COMBO_REPLAY.recipe,
+        combat: legacyCombat,
+      },
+    });
+
+    expect(homingStopDistance).toBe(92);
+    expect(migrated.version).toBe(BATTLE_REPLAY_VERSION);
+    expect(migrated.recipe.combat.homingStopDistance).toBe(92);
+    expect(JSON.parse(serializeBattleReplay(migrated))).toMatchObject({
+      version: BATTLE_REPLAY_VERSION,
+    });
   });
 
   it("reproduces every tick hash and the complete air-combo result twice", () => {

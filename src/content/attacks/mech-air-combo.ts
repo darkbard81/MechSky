@@ -25,12 +25,12 @@ export const MECH_AIR_1 = {
     minimumElevation: -24,
     maximumElevation: 132,
   },
-  cancels: [{ fromFrame: 9, into: ["air"], requiresHit: true }],
+  cancels: [{ fromFrame: 9, into: ["air-followup"], requiresHit: true }],
 } as const satisfies AttackDefinition;
 
 export const MECH_AIR_2 = {
   id: "mech-air-2",
-  tags: ["melee", "air"],
+  tags: ["melee", "air", "air-followup"],
   startupFrames: 6,
   activeFrames: 4,
   recoveryFrames: 13,

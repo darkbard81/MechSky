@@ -129,13 +129,18 @@ npm run preview  # Browser production preview
 npm start        # Electron production file:// shell
 ```
 
-`npm run build`는 기존 unit/M6 browser gate 뒤 production Browser와 실제 Electron package
-entry를 검사한다. headed 화면, keyboard/gamepad 전체 공중 콤보, 두 해상도 layout,
+`npm run build`는 기존 unit/M6 browser gate 뒤 production 최적화를 적용한 계측
+release-candidate와 실제 Electron package entry를 검사한다. gate가 끝나면
+`window.__GAME_DEBUG__`가 제거된 shipping web bundle을 다시 만들고 별도 부팅 smoke로
+API 부재를 확인한다. headed 화면, keyboard/gamepad 전체 공중 콤보, 두 해상도 layout,
 focus/fullscreen/reduced-motion과 timing evidence를 다시 만들려면:
 
 ```bash
 npm run demo:m7
 ```
+
+`demo:m7`도 증거 생성이 끝난 뒤 shipping web bundle을 다시 만들어 계측 API를 남기지
+않는다. 개발 서버에서는 `window.__GAME_DEBUG__`를 계속 사용할 수 있다.
 
 production relative asset base에서는 `/?devScenario=air-combo`처럼 root query를 사용한다.
 개발 서버의 기존 `/dev/battle?scenario=air-combo` 경로도 유지된다. 상세 수치, object pool

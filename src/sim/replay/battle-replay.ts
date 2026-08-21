@@ -4,10 +4,13 @@ import type { BattleRecipe } from "../world/battle-recipe";
 import type { SimEvent } from "../world/sim-event";
 import {
   SimulationWorld,
+  validateRecipe,
   type SimulationSnapshot,
 } from "../world/world";
 
-export const BATTLE_REPLAY_VERSION = 1;
+export const BATTLE_REPLAY_VERSION = 2;
+const LEGACY_BATTLE_REPLAY_VERSION = 1;
+const LEGACY_HOMING_STOP_DISTANCE = 92;
 const UINT32_MAX = 0xffff_ffff;
 const FNV_OFFSET_BASIS = 0x811c_9dc5;
 const FNV_PRIME = 0x0100_0193;
@@ -42,6 +45,21 @@ function requireReplaySeed(value: unknown): number {
     value > UINT32_MAX
   ) {
     throw new RangeError("Replay seed must be an unsigned non-zero 32-bit integer.");
+  }
+
+  return value;
+}
+
+function requireReplayVersion(
+  value: unknown,
+): typeof LEGACY_BATTLE_REPLAY_VERSION | typeof BATTLE_REPLAY_VERSION {
+  if (
+    value !== LEGACY_BATTLE_REPLAY_VERSION &&
+    value !== BATTLE_REPLAY_VERSION
+  ) {
+    throw new RangeError(
+      `Replay version must be ${LEGACY_BATTLE_REPLAY_VERSION} or ${BATTLE_REPLAY_VERSION}.`,
+    );
   }
 
   return value;
@@ -99,7 +117,11 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
-function cloneRecipe(value: unknown, seed: number): BattleRecipe {
+function cloneRecipe(
+  value: unknown,
+  seed: number,
+  sourceVersion: typeof LEGACY_BATTLE_REPLAY_VERSION | typeof BATTLE_REPLAY_VERSION,
+): BattleRecipe {
   if (!isRecord(value)) {
     throw new RangeError("Replay recipe must be an object.");
   }
@@ -118,16 +140,16 @@ function cloneRecipe(value: unknown, seed: number): BattleRecipe {
     throw new RangeError("Replay recipe did not serialize to an object.");
   }
 
+  if (sourceVersion === LEGACY_BATTLE_REPLAY_VERSION) {
+    const combat = clone["combat"];
+    if (isRecord(combat) && combat["homingStopDistance"] === undefined) {
+      combat["homingStopDistance"] = LEGACY_HOMING_STOP_DISTANCE;
+    }
+  }
+
   const candidate = { ...clone, seed } as unknown as BattleRecipe;
   try {
-    const world = new SimulationWorld(candidate);
-    world.drainEvents();
-    new EnemyAiController(
-      candidate.enemy.id,
-      candidate.player.id,
-      candidate.enemyAi,
-      seed,
-    );
+    validateRecipe(candidate);
   } catch (error: unknown) {
     throw new RangeError(
       `Replay recipe is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
@@ -139,12 +161,13 @@ function cloneRecipe(value: unknown, seed: number): BattleRecipe {
 }
 
 function parseReplayValue(value: unknown): BattleReplay {
-  if (!isRecord(value) || value["version"] !== BATTLE_REPLAY_VERSION) {
-    throw new RangeError(`Replay version must be ${BATTLE_REPLAY_VERSION}.`);
+  if (!isRecord(value)) {
+    throw new RangeError("Replay must be an object.");
   }
 
+  const sourceVersion = requireReplayVersion(value["version"]);
   const seed = requireReplaySeed(value["seed"]);
-  const recipe = cloneRecipe(value["recipe"], seed);
+  const recipe = cloneRecipe(value["recipe"], seed, sourceVersion);
   const inputFrames = value["inputFrames"];
   if (!Array.isArray(inputFrames)) {
     throw new RangeError("Replay inputFrames must be an array.");

@@ -73,6 +73,52 @@ async function hudLayout(page) {
   });
 }
 
+async function inspectBootFailure(browser, baseUrl) {
+  const bootPage = await browser.newPage({
+    deviceScaleFactor: 1,
+    viewport,
+  });
+  const consoleErrors = [];
+  const pageErrors = [];
+  bootPage.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+  bootPage.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+
+  try {
+    await bootPage.goto(`${baseUrl}/dev/battle?scenario=unknown`, {
+      waitUntil: "domcontentloaded",
+    });
+    await bootPage.locator('#game-surface[data-ready="error"]').waitFor({
+      state: "attached",
+      timeout: 15_000,
+    });
+    const summary = await bootPage.evaluate(() => ({
+      bootStatus: document.querySelector("#boot-status")?.textContent ?? "",
+      detail: document.querySelector("#loading-detail")?.textContent ?? "",
+      overlayHidden:
+        document.querySelector("#boot-overlay")?.hasAttribute("hidden") ?? true,
+    }));
+    await bootPage.screenshot({
+      path: resolve(artifactDirectory, "invalid-scenario-error-1280x800.png"),
+    });
+
+    assert.equal(summary.bootStatus, "초기화 실패");
+    assert.match(summary.detail, /Unknown battle scenario 'unknown'/u);
+    assert.equal(summary.overlayHidden, false);
+    assert.deepEqual(pageErrors, []);
+    assert.equal(consoleErrors.length, 1);
+    assert.match(consoleErrors[0] ?? "", /Unknown battle scenario 'unknown'/u);
+    return summary;
+  } finally {
+    await bootPage.close();
+  }
+}
+
 async function main() {
   await mkdir(artifactDirectory, { recursive: true });
   const vite = await createServer({
@@ -252,6 +298,7 @@ async function main() {
       path: resolve(artifactDirectory, "1000-projectiles-1280x800.png"),
     });
 
+    const bootFailure = await inspectBootFailure(browser, baseUrl);
     assert.deepEqual(browserErrors, []);
     const result = {
       viewport,
@@ -260,11 +307,13 @@ async function main() {
       fixedReplay: fixedSummary,
       repeatedHash: second.hash,
       projectileStress,
+      bootFailure,
       screenshots: [
         "visual-replay-1280x800.png",
         "air-combo-fixed-1280x800.png",
         "debug-overlays-1280x800.png",
         "1000-projectiles-1280x800.png",
+        "invalid-scenario-error-1280x800.png",
       ],
     };
     await writeFile(

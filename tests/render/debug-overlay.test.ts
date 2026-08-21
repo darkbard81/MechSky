@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   debugLayerForCode,
   isDebugLayerName,
-} from "../../src/render/debug/debug-overlay";
+} from "../../src/render/debug/debug-layers";
 import {
   cameraShakeMotionScale,
   REDUCED_MOTION_SHAKE_SCALE,

@@ -107,7 +107,11 @@ export default tseslint.config(
     }
   },
   {
-    files: ["scripts/m6-browser-smoke.mjs", "scripts/m7-release-smoke.mjs"],
+    files: [
+      "scripts/m6-browser-smoke.mjs",
+      "scripts/m7-release-smoke.mjs",
+      "scripts/shipping-browser-smoke.mjs",
+    ],
     languageOptions: {
       globals: {
         ...globals.node,

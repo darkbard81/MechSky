@@ -41,6 +41,30 @@ function advanceWithoutAi(world: SimulationWorld, ticks: number): void {
 }
 
 describe("enemy AI CommandIntent decisions", () => {
+  it("rejects a controller that targets the fighter it drives", () => {
+    expect(
+      () =>
+        new EnemyAiController(
+          ENEMY_FIGHTER_ID,
+          ENEMY_FIGHTER_ID,
+          HANGAR_TEST_BATTLE.enemyAi,
+          HANGAR_TEST_BATTLE.seed,
+        ),
+    ).toThrow(/cannot target/iu);
+  });
+
+  it("rejects fighter ids that are absent from the supplied snapshot", () => {
+    const world = new SimulationWorld(HANGAR_TEST_BATTLE);
+    const ai = new EnemyAiController(
+      ENEMY_FIGHTER_ID + 100,
+      PLAYER_FIGHTER_ID,
+      HANGAR_TEST_BATTLE.enemyAi,
+      HANGAR_TEST_BATTLE.seed,
+    );
+
+    expect(() => ai.decide(world.getFrame().current)).toThrow(/no fighter/iu);
+  });
+
   it("waits for its readable reaction delay, then approaches through MoveIntent", () => {
     const world = new SimulationWorld(HANGAR_TEST_BATTLE);
     const ai = createAi();

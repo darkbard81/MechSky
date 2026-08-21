@@ -1,4 +1,4 @@
-import type { DebugLayerName } from "../render/debug/debug-overlay";
+import type { DebugLayerName } from "../render/debug/debug-layers";
 import type { GamePauseReason } from "../app/game-flow";
 import type { RuntimePerformanceSnapshot } from "../app/runtime-performance";
 import type { BattleReplay } from "../sim/replay/battle-replay";

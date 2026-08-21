@@ -39,6 +39,15 @@ import type { SimEvent } from "./sim-event";
 
 export const SIMULATION_HZ = 60;
 const STEP_SECONDS = 1 / SIMULATION_HZ;
+/** Below this planar speed a fighter reads as standing still, not walking. */
+const MOVING_SPEED_EPSILON = 0.01;
+/** Chasers aim slightly below the target's crown so the hit reads as a strike. */
+const HOMING_TARGET_HEIGHT_FRACTION = 0.12;
+/** Proportional gain turning remaining elevation error into vertical speed. */
+const HOMING_ELEVATION_GAIN = 10;
+/** Fall speed that saturates the ground-impact severity sent to the renderer. */
+const MAXIMUM_SEVERITY_IMPACT_SPEED = 600;
+const MAXIMUM_GROUND_IMPACT_SEVERITY = 2;
 
 export type BattleOutcome = "ongoing" | "victory" | "defeat";
 
@@ -159,7 +168,7 @@ function validateFighterRecipe(recipe: FighterRecipe, label: string, arenaRadius
   }
 }
 
-function validateRecipe(recipe: BattleRecipe): void {
+export function validateRecipe(recipe: BattleRecipe): void {
   if (!Number.isInteger(recipe.seed) || recipe.seed < 1 || recipe.seed > 0xffff_ffff) {
     throw new RangeError("Battle seed must be an unsigned non-zero 32-bit integer.");
   }
@@ -207,9 +216,12 @@ function validateRecipe(recipe: BattleRecipe): void {
     combat.maximumFallSpeed,
     combat.homingSpeed,
     combat.homingVerticalSpeed,
+    combat.homingStopDistance,
   ];
   if (positiveCombatValues.some((value) => !Number.isFinite(value) || value <= 0)) {
-    throw new RangeError("Combat gravity, fall speed, and homing speeds must be positive.");
+    throw new RangeError(
+      "Combat gravity, fall speed, homing speeds, and homing stop distance must be positive.",
+    );
   }
 
   if (
@@ -635,7 +647,8 @@ export class SimulationWorld {
     );
     fighter.body.velocity.x = velocity.x;
     fighter.body.velocity.y = velocity.y;
-    fighter.state = vectorLength(velocity) > 0.01 ? "moving" : "idle";
+    fighter.state =
+      vectorLength(velocity) > MOVING_SPEED_EPSILON ? "moving" : "idle";
   }
 
   private beginGroundDash(
@@ -694,7 +707,6 @@ export class SimulationWorld {
     fighter.dashSequence += 1;
     fighter.locomotion = "airborne";
     fighter.state = "dashing";
-    this.updateHomingChase(fighter, target);
 
     this.events.push({
       type: "homing-started",
@@ -710,7 +722,10 @@ export class SimulationWorld {
     };
     const direction = normalizeOrZero(toTarget);
     const distance = vectorLength(toTarget);
-    const planarSpeed = distance > 92 ? this.recipe.combat.homingSpeed : 0;
+    const planarSpeed =
+      distance > this.recipe.combat.homingStopDistance
+        ? this.recipe.combat.homingSpeed
+        : 0;
 
     if (direction.x !== 0 || direction.y !== 0) {
       fighter.facing = direction;
@@ -719,11 +734,15 @@ export class SimulationWorld {
     fighter.body.velocity.y = direction.y * planarSpeed;
 
     const elevationError =
-      target.body.position.elevation + target.body.bodyHeight * 0.12 -
+      target.body.position.elevation +
+      target.body.bodyHeight * HOMING_TARGET_HEIGHT_FRACTION -
       fighter.body.position.elevation;
     fighter.body.verticalVelocity = Math.min(
       this.recipe.combat.homingVerticalSpeed,
-      Math.max(-this.recipe.combat.homingVerticalSpeed, elevationError * 10),
+      Math.max(
+        -this.recipe.combat.homingVerticalSpeed,
+        elevationError * HOMING_ELEVATION_GAIN,
+      ),
     );
     fighter.state = "dashing";
   }
@@ -800,7 +819,10 @@ export class SimulationWorld {
       x: fighter.body.position.x,
       y: fighter.body.position.y,
       impactSpeed,
-      severity: Math.min(2, impactSpeed / 600),
+      severity: Math.min(
+        MAXIMUM_GROUND_IMPACT_SEVERITY,
+        impactSpeed / MAXIMUM_SEVERITY_IMPACT_SPEED,
+      ),
     });
   }
 

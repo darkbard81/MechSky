@@ -4,6 +4,11 @@ import type {
   SimulationSnapshot,
 } from "../sim/world/world";
 
+export interface BattlePresentation {
+  readonly viewSnapshot: SimulationSnapshot;
+  readonly authoritativeSnapshot: SimulationSnapshot;
+}
+
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
@@ -66,5 +71,16 @@ export function interpolateSimulationFrame(
       frame.current.enemy,
       normalizedAlpha,
     ),
+  };
+}
+
+/** Keeps the interpolated view and authoritative tick state named and paired. */
+export function createBattlePresentation(
+  frame: SimulationFrame,
+  alpha: number,
+): BattlePresentation {
+  return {
+    viewSnapshot: interpolateSimulationFrame(frame, alpha),
+    authoritativeSnapshot: frame.current,
   };
 }

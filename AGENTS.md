@@ -106,6 +106,9 @@ documents/      아키텍처, 로드맵, milestone 증거
 - replay는 seed와 input frame을 고정해 state hash를 비교한다.
 - 브라우저 테스트는 DOM assertion으로 끝내지 않고 screenshot을 남긴다.
 - 성능은 profiler 측정 없이 추측으로 최적화하지 않는다.
+- `window.__GAME_DEBUG__`는 dev와 계측 release-candidate 빌드에만 둔다. M7 gate가
+  계측 빌드를 검사한 뒤 `npm run build`는 API가 제거된 shipping web bundle을 다시
+  만들고 `npm run test:shipping`으로 부팅과 API 부재를 확인한다.
 
 ## Asset 계약
 

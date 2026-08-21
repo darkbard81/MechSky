@@ -1,6 +1,19 @@
 import type { EntityId } from "../world/entity";
 
-export type AttackTag = "melee" | "ground" | "air" | "dash" | "launcher" | "finisher";
+/**
+ * Cancel-routing vocabulary. Broad tags can intentionally open an attack
+ * family, while route-specific follow-up tags keep ordered chain steps from
+ * leaking into another chain.
+ */
+export type AttackTag =
+  | "melee"
+  | "ground"
+  | "air"
+  | "dash"
+  | "ground-followup"
+  | "air-followup"
+  | "launcher"
+  | "finisher";
 
 /**
  * Hitbox geometry only. The frames it is live for come from the attack

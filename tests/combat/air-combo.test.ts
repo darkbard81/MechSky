@@ -79,6 +79,44 @@ function waitForCancelableFrame(
   );
 }
 
+/** Runs the full Z Z X Shift Z Z X route until the enemy is on the floor. */
+function driveComboToKnockdown(world: SimulationWorld): void {
+  step(world, [PRIMARY]);
+  waitForCancelableFrame(world, "mech-ground-1", 10);
+  step(world, [PRIMARY]);
+  waitForCancelableFrame(world, "mech-ground-2", 13);
+  step(world, [SPECIAL]);
+  advanceUntil(world, (_snapshot, tickEvents) =>
+    hitIds(tickEvents).includes("mech-launcher"),
+  );
+  waitForCancelableFrame(world, "mech-launcher", 11);
+  step(world, [CHASE]);
+  advanceUntil(world, ({ player, enemy }) => {
+    const planeDistance = Math.hypot(
+      player.body.position.x - enemy.body.position.x,
+      player.body.position.y - enemy.body.position.y,
+    );
+    const elevationDistance = Math.abs(
+      player.body.position.elevation - enemy.body.position.elevation,
+    );
+    return planeDistance < 105 && elevationDistance < 58;
+  });
+  step(world, [PRIMARY]);
+  advanceUntil(world, (_snapshot, tickEvents) =>
+    hitIds(tickEvents).includes("mech-air-1"),
+  );
+  waitForCancelableFrame(world, "mech-air-1", 9);
+  step(world, [PRIMARY]);
+  advanceUntil(world, (_snapshot, tickEvents) =>
+    hitIds(tickEvents).includes("mech-air-2"),
+  );
+  waitForCancelableFrame(world, "mech-air-2", 10);
+  step(world, [SPECIAL]);
+  advanceUntil(world, (_snapshot, tickEvents) =>
+    tickEvents.some((event) => event.type === "ground-impact"),
+  );
+}
+
 function hitIds(events: readonly SimEvent[]): string[] {
   return events
     .filter((event): event is HitLandedEvent => event.type === "hit-landed")
@@ -290,5 +328,44 @@ describe("M3 launcher and air combo", () => {
     expect(separatedWorld.getFrame().current.enemy.health).toBe(
       recipe.enemy.health,
     );
+  });
+});
+
+describe("knockdown invulnerability", () => {
+  it("refuses hits while the victim is downed and cannot act", () => {
+    const world = new SimulationWorld(comboRecipe());
+    driveComboToKnockdown(world);
+    expect(world.getFrame().current.enemy.locomotion).toBe("downed");
+
+    const healthWhenDowned = world.getFrame().current.enemy.health;
+    const landedWhileDowned: string[] = [];
+
+    while (world.getFrame().current.enemy.locomotion === "downed") {
+      const { player, enemy } = world.getFrame().current;
+      const toEnemy = {
+        x: enemy.body.position.x - player.body.position.x,
+        y: enemy.body.position.y - player.body.position.y,
+      };
+      const distance = Math.hypot(toEnemy.x, toEnemy.y);
+      landedWhileDowned.push(
+        ...hitIds(
+          step(world, [
+            {
+              type: "move",
+              fighterId: PLAYER_FIGHTER_ID,
+              direction:
+                distance === 0
+                  ? { x: 0, y: 0 }
+                  : { x: toEnemy.x / distance, y: toEnemy.y / distance },
+            },
+            PRIMARY,
+          ]),
+        ),
+      );
+    }
+
+    expect(landedWhileDowned).toEqual([]);
+    expect(world.getFrame().current.enemy.health).toBe(healthWhenDowned);
+    expect(world.getFrame().current.enemy.locomotion).toBe("grounded");
   });
 });

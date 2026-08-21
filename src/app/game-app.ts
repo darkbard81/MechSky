@@ -11,7 +11,7 @@ import {
   debugLayerForCode,
   isDebugLayerName,
   type DebugLayerName,
-} from "../render/debug/debug-overlay";
+} from "../render/debug/debug-layers";
 import { PixiBattleRenderer } from "../render/pixi-renderer";
 import {
   createBattleReplay,
@@ -46,6 +46,8 @@ import { RuntimePerformanceMonitor } from "./runtime-performance";
 
 const MANUAL_STEP_SECONDS = 1 / SIMULATION_HZ;
 const MAX_MANUAL_STEP_FRAMES = 10_000;
+const GAME_DEBUG_ENABLED =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_GAME_DEBUG === "1";
 
 export interface GameAppElements
   extends DevelopmentHudElements,
@@ -152,18 +154,28 @@ export class GameApp {
       this.previousRenderTimeMilliseconds = undefined;
       this.hud.ready(this.platform.kind);
       this.syncFullscreenState();
-      window.__GAME_DEBUG__ = this.debugApi;
+      if (GAME_DEBUG_ENABLED) {
+        window.__GAME_DEBUG__ = this.debugApi;
+      }
       const inputStatus = this.input.getStatus();
       this.presentDom(inputStatus, 0);
       this.elements.surface.dataset["ready"] = "true";
       this.animationFrameId = requestAnimationFrame(this.frame);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "알 수 없는 초기화 오류";
-      this.destroy();
-      this.elements.surface.dataset["ready"] = "error";
-      this.hud.failed(message);
+      this.reportBootFailure(error);
       throw error;
     }
+  }
+
+  /**
+   * Boot failures raised before `start()` can run still have to reach the same
+   * overlay, otherwise the page just freezes on the initial boot state.
+   */
+  reportBootFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : "알 수 없는 초기화 오류";
+    this.destroy();
+    this.elements.surface.dataset["ready"] = "error";
+    this.hud.failed(message);
   }
 
   destroy(): void {
@@ -323,7 +335,6 @@ export class GameApp {
     this.elements.surface.dataset["replayFrame"] = this.replayFrame.toString();
     this.elements.surface.dataset["replayLength"] =
       (this.activeReplay?.inputFrames.length ?? this.recordedInputFrames.length).toString();
-    this.elements.surface.dataset["stateHash"] = hashSimulationSnapshot(current);
     this.elements.surface.dataset["projectileCount"] = this.projectileCount.toString();
     this.elements.surface.dataset["debugLayers"] =
       this.renderer.enabledDebugLayers().join(",");

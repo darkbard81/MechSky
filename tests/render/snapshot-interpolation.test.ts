@@ -3,7 +3,11 @@ import { HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID } from "../../src/content/arenas/
 import { actorGroundSortKey } from "../../src/render/actors/ground-sort";
 import { SmoothCamera } from "../../src/render/camera/smooth-camera";
 import { resolveBattleCameraTarget } from "../../src/render/camera/battle-camera-target";
-import { interpolateSimulationFrame } from "../../src/render/snapshot-interpolation";
+import {
+  createBattlePresentation,
+  interpolateSimulationFrame,
+} from "../../src/render/snapshot-interpolation";
+import { hashSimulationSnapshot } from "../../src/sim/replay/battle-replay";
 import { SimulationWorld } from "../../src/sim/world/world";
 
 describe("snapshot presentation", () => {
@@ -90,5 +94,28 @@ describe("snapshot presentation", () => {
       (airborne.player.body.position.x + airborne.enemy.body.position.x) / 2,
     );
     expect(airTarget.y).toBeLessThan(groundTarget.y);
+  });
+});
+
+describe("state hash source", () => {
+  it("pairs the interpolated view with the authoritative tick state", () => {
+    const world = new SimulationWorld(HANGAR_TEST_BATTLE);
+    world.step([
+      {
+        type: "move",
+        fighterId: PLAYER_FIGHTER_ID,
+        direction: { x: 1, y: 0 },
+      },
+    ]);
+    const frame = world.getFrame();
+    const presentation = createBattlePresentation(frame, 0.5);
+
+    expect(presentation.authoritativeSnapshot).toBe(frame.current);
+    expect(hashSimulationSnapshot(presentation.authoritativeSnapshot)).toBe(
+      hashSimulationSnapshot(frame.current),
+    );
+    expect(hashSimulationSnapshot(presentation.viewSnapshot)).not.toBe(
+      hashSimulationSnapshot(frame.current),
+    );
   });
 });

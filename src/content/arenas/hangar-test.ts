@@ -57,6 +57,7 @@ export const HANGAR_TEST_BATTLE: BattleRecipe = Object.freeze({
     homingDurationTicks: 24,
     homingSpeed: 720,
     homingVerticalSpeed: 840,
+    homingStopDistance: 92,
     downedFrames: 48,
   },
 });

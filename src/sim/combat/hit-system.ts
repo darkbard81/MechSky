@@ -32,7 +32,13 @@ export class HitResolver {
 
     this.hurtboxes.clear();
     for (const target of targets) {
-      if (target.id === attacker.id || target.health <= 0) {
+      // A downed fighter cannot move, act, or wake early, so leaving it
+      // hittable would be a free loop with no counterplay.
+      if (
+        target.id === attacker.id ||
+        target.health <= 0 ||
+        target.locomotion === "downed"
+      ) {
         continue;
       }
 
@@ -93,8 +99,15 @@ export class HitResolver {
       if (definition.launchVelocity !== 0) {
         target.body.verticalVelocity = definition.launchVelocity;
         target.locomotion = "airborne";
+        // A fresh upward launch replaces whatever the previous hit queued,
+        // so a slam cannot outlive the combo that set it.
+        if (definition.launchVelocity > 0) {
+          target.groundSlamPending = false;
+        }
       }
-      target.groundSlamPending ||= definition.groundSlam;
+      if (definition.groundSlam) {
+        target.groundSlamPending = true;
+      }
 
       beginHitstun(target, definition.hitStunFrames);
       target.hitStopFrames = definition.hitStopFrames;

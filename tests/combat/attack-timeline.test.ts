@@ -47,8 +47,8 @@ describe("attack timeline", () => {
   it("opens a hit-gated cancel only after the attack connected", () => {
     expect(cancelTagsAt(FIRST, 9, true)).toEqual([]);
     expect(cancelTagsAt(FIRST, 10, false)).toEqual([]);
-    expect(cancelTagsAt(FIRST, 10, true)).toEqual(["melee"]);
-    expect(cancelTagsAt(FIRST, 22, true)).toEqual(["melee"]);
+    expect(cancelTagsAt(FIRST, 10, true)).toEqual(["ground-followup"]);
+    expect(cancelTagsAt(FIRST, 22, true)).toEqual(["ground-followup"]);
   });
 
   it("matches a cancel against the target attack tags", () => {
@@ -90,5 +90,31 @@ describe("attack timeline", () => {
         cancels: [{ fromFrame: 99, into: ["melee"], requiresHit: false }],
       }),
     ).toThrow(/timeline/);
+  });
+});
+
+describe("combo route gating", () => {
+  const LAUNCHER = attack("mech-launcher");
+  const AIR_1 = attack("mech-air-1");
+  const AIR_2 = attack("mech-air-2");
+  const FINISHER = attack("mech-finisher");
+
+  it("keeps the launcher behind the second ground hit", () => {
+    expect(canCancelInto(FIRST, 10, true, SECOND)).toBe(true);
+    expect(canCancelInto(FIRST, 10, true, LAUNCHER)).toBe(false);
+    expect(canCancelInto(SECOND, 13, true, LAUNCHER)).toBe(true);
+  });
+
+  it("keeps the finisher behind the second air hit", () => {
+    expect(canCancelInto(AIR_1, 9, true, AIR_2)).toBe(true);
+    expect(canCancelInto(AIR_1, 9, true, FINISHER)).toBe(false);
+    expect(canCancelInto(AIR_2, 10, true, FINISHER)).toBe(true);
+  });
+
+  it("does not share ordered follow-up routes between ground and air chains", () => {
+    expect(cancelTagsAt(FIRST, 10, true)).toEqual(["ground-followup"]);
+    expect(cancelTagsAt(AIR_1, 9, true)).toEqual(["air-followup"]);
+    expect(canCancelInto(FIRST, 10, true, AIR_2)).toBe(false);
+    expect(canCancelInto(AIR_1, 9, true, SECOND)).toBe(false);
   });
 });

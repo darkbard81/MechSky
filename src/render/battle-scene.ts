@@ -18,12 +18,13 @@ import {
 import { resolveBattleCameraTarget } from "./camera/battle-camera-target";
 import { SmoothCamera } from "./camera/smooth-camera";
 import {
-  DebugOverlay,
   type DebugLayerName,
   type DebugRuntimeMetrics,
-} from "./debug/debug-overlay";
+} from "./debug/debug-layers";
+import { DebugOverlay } from "./debug/debug-overlay";
 import { ProjectileStressView } from "./debug/projectile-stress-view";
 import { ImpactEffects } from "./effects/impact-effects";
+import type { BattlePresentation } from "./snapshot-interpolation";
 import type { StageLayers } from "./stage-layers";
 
 const AFTERIMAGE_COUNT = 5;
@@ -236,18 +237,25 @@ export class BattleScene {
     this.debug = new DebugOverlay(layers.debug, layers.screenDebug);
     this.projectileStress = new ProjectileStressView(layers);
 
-    this.present(initialSnapshot, 0, {
-      framesPerSecond: 60,
-      frameMilliseconds: 1_000 / 60,
-      projectileCount: 0,
-      simulationAverageMilliseconds: 0,
-      simulationMaximumMilliseconds: 0,
-      collisionHitAverageMilliseconds: 0,
-      collisionHitMaximumMilliseconds: 0,
-      aiAverageMilliseconds: 0,
-      aiMaximumMilliseconds: 0,
-      frameSpikeCount: 0,
-    });
+    this.present(
+      {
+        viewSnapshot: initialSnapshot,
+        authoritativeSnapshot: initialSnapshot,
+      },
+      0,
+      {
+        framesPerSecond: 60,
+        frameMilliseconds: 1_000 / 60,
+        projectileCount: 0,
+        simulationAverageMilliseconds: 0,
+        simulationMaximumMilliseconds: 0,
+        collisionHitAverageMilliseconds: 0,
+        collisionHitMaximumMilliseconds: 0,
+        aiAverageMilliseconds: 0,
+        aiMaximumMilliseconds: 0,
+        frameSpikeCount: 0,
+      },
+    );
   }
 
   toggleDebugLayer(layer: DebugLayerName): boolean {
@@ -306,18 +314,25 @@ export class BattleScene {
     this.camera.reset(resolveBattleCameraTarget(snapshot));
     this.playerView.reset(snapshot.player, snapshot.tick);
     this.enemyView.reset(snapshot.enemy, snapshot.tick);
-    this.present(snapshot, 0, {
-      framesPerSecond: 60,
-      frameMilliseconds: 1_000 / 60,
-      projectileCount: this.projectileStress.count,
-      simulationAverageMilliseconds: 0,
-      simulationMaximumMilliseconds: 0,
-      collisionHitAverageMilliseconds: 0,
-      collisionHitMaximumMilliseconds: 0,
-      aiAverageMilliseconds: 0,
-      aiMaximumMilliseconds: 0,
-      frameSpikeCount: 0,
-    });
+    this.present(
+      {
+        viewSnapshot: snapshot,
+        authoritativeSnapshot: snapshot,
+      },
+      0,
+      {
+        framesPerSecond: 60,
+        frameMilliseconds: 1_000 / 60,
+        projectileCount: this.projectileStress.count,
+        simulationAverageMilliseconds: 0,
+        simulationMaximumMilliseconds: 0,
+        collisionHitAverageMilliseconds: 0,
+        collisionHitMaximumMilliseconds: 0,
+        aiAverageMilliseconds: 0,
+        aiMaximumMilliseconds: 0,
+        frameSpikeCount: 0,
+      },
+    );
   }
 
   /** Consumes simulation events. The scene never reads combat state directly. */
@@ -350,10 +365,11 @@ export class BattleScene {
   }
 
   present(
-    snapshot: SimulationSnapshot,
+    presentation: BattlePresentation,
     deltaSeconds: number,
     metrics: DebugRuntimeMetrics,
   ): void {
+    const snapshot = presentation.viewSnapshot;
     const safeDelta = Math.min(Math.max(deltaSeconds, 0), 0.05);
     const { player } = snapshot;
 
@@ -366,7 +382,7 @@ export class BattleScene {
     this.impacts.advance(safeDelta);
     this.shake.advance(safeDelta);
     this.projectileStress.present(snapshot);
-    this.debug.present(snapshot, metrics);
+    this.debug.present(presentation, metrics);
 
     this.camera.follow(resolveBattleCameraTarget(snapshot), safeDelta);
     this.applyCameraTransform();

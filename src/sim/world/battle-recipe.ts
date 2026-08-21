@@ -34,6 +34,8 @@ export interface CombatRecipe {
   readonly homingDurationTicks: number;
   readonly homingSpeed: number;
   readonly homingVerticalSpeed: number;
+  /** Planar gap the chaser holds once it reaches its target. */
+  readonly homingStopDistance: number;
   readonly downedFrames: number;
 }
 

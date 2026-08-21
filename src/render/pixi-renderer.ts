@@ -7,10 +7,10 @@ import type {
   DebugLayerName,
   DebugRuntimeMetrics,
   DebugTimingMetrics,
-} from "./debug/debug-overlay";
+} from "./debug/debug-layers";
 import { loadBattleAssets, type AssetLoadProgress } from "./assets/battle-assets";
 import { BattleScene } from "./battle-scene";
-import { interpolateSimulationFrame } from "./snapshot-interpolation";
+import { createBattlePresentation } from "./snapshot-interpolation";
 import { createStageLayers, type StageLayers } from "./stage-layers";
 
 const MAX_RESOLUTION = 2;
@@ -155,7 +155,7 @@ export class PixiBattleRenderer {
     this.debugMetrics.aiMaximumMilliseconds = timing.aiMaximumMilliseconds;
     this.debugMetrics.frameSpikeCount = timing.frameSpikeCount;
     this.battleScene.present(
-      interpolateSimulationFrame(frame, alpha),
+      createBattlePresentation(frame, alpha),
       renderDeltaSeconds,
       this.debugMetrics,
     );

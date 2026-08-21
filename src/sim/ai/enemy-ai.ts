@@ -2,7 +2,12 @@ import type { CommandIntent } from "../input/command-intent";
 import { normalizeOrZero, vectorLength, type Vector2 } from "../math/vector2";
 import { SeededPrng } from "../math/seeded-prng";
 import type { EntityId } from "../world/entity";
-import type { SimulationSnapshot } from "../world/world";
+import type { FighterSnapshot, SimulationSnapshot } from "../world/world";
+
+/** Cap on how hard spacing pulls straight toward or away from the target. */
+const MAXIMUM_RADIAL_CORRECTION = 0.34;
+/** Sideways weight that turns spacing into a circle-strafe instead of a shuffle. */
+const ORBIT_TANGENT_WEIGHT = 0.42;
 
 export type EnemyAiState =
   | "observing"
@@ -65,6 +70,21 @@ export function validateEnemyAiRecipe(recipe: EnemyAiRecipe): void {
   }
 }
 
+function fighterById(
+  snapshot: SimulationSnapshot,
+  id: EntityId,
+): FighterSnapshot {
+  if (snapshot.player.id === id) {
+    return snapshot.player;
+  }
+
+  if (snapshot.enemy.id === id) {
+    return snapshot.enemy;
+  }
+
+  throw new RangeError(`Snapshot has no fighter with id ${id}.`);
+}
+
 function rotate(direction: Readonly<Vector2>, radians: number): Vector2 {
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
@@ -93,6 +113,11 @@ export class EnemyAiController {
     seed: number,
   ) {
     validateEnemyAiRecipe(recipe);
+
+    if (fighterId === targetId) {
+      throw new RangeError("Enemy AI cannot target the fighter it drives.");
+    }
+
     this.random = new SeededPrng(seed);
     this.nextDecisionTick = recipe.reactionDelayFrames;
   }
@@ -102,10 +127,8 @@ export class EnemyAiController {
   }
 
   decide(snapshot: SimulationSnapshot): readonly CommandIntent[] {
-    const self =
-      snapshot.player.id === this.fighterId ? snapshot.player : snapshot.enemy;
-    const target =
-      snapshot.player.id === this.targetId ? snapshot.player : snapshot.enemy;
+    const self = fighterById(snapshot, this.fighterId);
+    const target = fighterById(snapshot, this.targetId);
     const tick = snapshot.tick;
 
     if (self.health === 0 || target.health === 0) {
@@ -195,16 +218,20 @@ export class EnemyAiController {
 
     const tangentSign = this.random.nextSigned() < 0 ? -1 : 1;
     const radialCorrection = Math.min(
-      0.34,
+      MAXIMUM_RADIAL_CORRECTION,
       Math.max(
-        -0.34,
+        -MAXIMUM_RADIAL_CORRECTION,
         (distance - this.recipe.preferredRange) /
           (this.recipe.maximumRange - this.recipe.minimumRange),
       ),
     );
     this.setMove({
-      x: direction.x * radialCorrection - direction.y * tangentSign * 0.42,
-      y: direction.y * radialCorrection + direction.x * tangentSign * 0.42,
+      x:
+        direction.x * radialCorrection -
+        direction.y * tangentSign * ORBIT_TANGENT_WEIGHT,
+      y:
+        direction.y * radialCorrection +
+        direction.x * tangentSign * ORBIT_TANGENT_WEIGHT,
     });
     this.currentState = "spacing";
     return this.moveOnly();

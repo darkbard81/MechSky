@@ -26,13 +26,13 @@ export const MECH_GROUND_1 = {
     minimumElevation: 0,
     maximumElevation: 90,
   },
-  cancels: [{ fromFrame: 10, into: ["melee"], requiresHit: true }],
+  cancels: [{ fromFrame: 10, into: ["ground-followup"], requiresHit: true }],
 } as const satisfies AttackDefinition;
 
 /** Second ground hit opens the X launcher only after it connects. */
 export const MECH_GROUND_2 = {
   id: "mech-ground-2",
-  tags: ["melee", "ground"],
+  tags: ["melee", "ground", "ground-followup"],
   startupFrames: 8,
   activeFrames: 5,
   recoveryFrames: 20,
