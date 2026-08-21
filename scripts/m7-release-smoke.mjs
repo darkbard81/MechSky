@@ -576,7 +576,7 @@ async function runBrowserCandidate(baseUrl, browser) {
     api.load("air-combo");
     return api.step(91).stateHash;
   });
-  assert.equal(replayProof, "a395bcca");
+  assert.equal(replayProof, "d12d0848");
   await performancePage.close();
 
   const reducedContext = await browser.newContext({

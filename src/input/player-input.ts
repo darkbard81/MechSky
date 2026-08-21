@@ -1,4 +1,4 @@
-import type { CommandIntent } from "../sim/input/command-intent";
+import type { AttackButton, CommandIntent } from "../sim/input/command-intent";
 import {
   clampVectorMagnitude,
   vectorLength,
@@ -40,17 +40,25 @@ const NUMPAD_FALLBACK_BY_KEY: Readonly<Record<string, string>> = Object.freeze({
   PageDown: "Numpad3",
 });
 
-const DASH_CODES = new Set(["ShiftLeft", "ShiftRight"]);
-const ATTACK_SLOT_BY_CODE: Readonly<Record<string, number>> = Object.freeze({
-  KeyZ: 0,
-  KeyX: 1,
+const SEARCH_DASH_CODES = new Set(["ShiftLeft", "ShiftRight"]);
+const ATTACK_BUTTON_BY_CODE: Readonly<Record<string, AttackButton>> = Object.freeze({
+  KeyZ: "A",
+  KeyX: "B",
+  KeyC: "C",
 });
 const LOCK_CODE = "Tab";
 const CONFIRM_CODES = new Set(["Enter", "KeyZ"]);
 const PAUSE_CODE = "Escape";
+const GAMEPAD_ATTACK_BUTTON_INDEXES: Readonly<Record<number, AttackButton>> =
+  Object.freeze({ 0: "A", 2: "B", 3: "C" });
+/** Attack A doubles as the menu confirm, the same way Enter does on keyboard. */
+const GAMEPAD_CONFIRM_INDEX = 0;
+const GAMEPAD_SEARCH_DASH_INDEX = 1;
+const GAMEPAD_LOCK_INDEX = 4;
+const GAMEPAD_PAUSE_INDEX = 9;
 
-export function attackSlotForCode(code: string): number | null {
-  return ATTACK_SLOT_BY_CODE[code] ?? null;
+export function attackButtonForCode(code: string): AttackButton | null {
+  return ATTACK_BUTTON_BY_CODE[code] ?? null;
 }
 
 export type InputSource = "keyboard" | "gamepad";
@@ -74,8 +82,8 @@ export interface PlayerInputFrame {
 export function resolveKeyboardCode(event: Pick<KeyboardEvent, "code" | "key" | "location">): string {
   if (
     event.code in DIRECTION_BY_CODE ||
-    DASH_CODES.has(event.code) ||
-    attackSlotForCode(event.code) !== null ||
+    SEARCH_DASH_CODES.has(event.code) ||
+    attackButtonForCode(event.code) !== null ||
     event.code === LOCK_CODE ||
     CONFIRM_CODES.has(event.code) ||
     event.code === PAUSE_CODE
@@ -147,22 +155,27 @@ function controlForCode(code: string): InputControl {
   return "KEYBOARD";
 }
 
+const TRACKED_GAMEPAD_BUTTONS: readonly number[] = Object.freeze([
+  ...Object.keys(GAMEPAD_ATTACK_BUTTON_INDEXES).map(Number),
+  GAMEPAD_SEARCH_DASH_INDEX,
+  GAMEPAD_LOCK_INDEX,
+  GAMEPAD_PAUSE_INDEX,
+]);
+
 function buttonPressed(gamepad: Gamepad, index: number): boolean {
   return gamepad.buttons[index]?.pressed ?? false;
 }
 
 export class PlayerInputController {
   private readonly pressedCodes = new Set<string>();
-  private attackQueuedSlot: number | null = null;
-  private dashQueued = false;
+  private readonly heldSearchDashCodes = new Set<string>();
+  private queuedAttackButton: AttackButton | null = null;
+  private searchDashQueued = false;
+  private gamepadSearchDashHeld = false;
   private lockQueued = false;
   private confirmQueued = false;
   private pauseQueued = false;
-  private previousAttackButton = false;
-  private previousSpecialButton = false;
-  private previousDashButton = false;
-  private previousLockButton = false;
-  private previousPauseButton = false;
+  private readonly previousGamepadButtons = new Set<number>();
   private gamepadConnected = false;
   private status: InputStatus = { source: "keyboard", control: "WASD" };
 
@@ -190,18 +203,25 @@ export class PlayerInputController {
       { type: "move", fighterId: this.fighterId, direction: move },
     ];
 
-    if (this.attackQueuedSlot !== null) {
+    if (this.queuedAttackButton !== null) {
       intents.push({
         type: "attack",
         fighterId: this.fighterId,
-        slot: this.attackQueuedSlot,
+        button: this.queuedAttackButton,
       });
-      this.attackQueuedSlot = null;
+      this.queuedAttackButton = null;
     }
 
-    if (this.dashQueued) {
-      intents.push({ type: "dash", fighterId: this.fighterId });
-      this.dashQueued = false;
+    const searchDashHeld =
+      this.heldSearchDashCodes.size > 0 || this.gamepadSearchDashHeld;
+    if (this.searchDashQueued || searchDashHeld) {
+      intents.push({
+        type: "search-dash",
+        fighterId: this.fighterId,
+        pressed: this.searchDashQueued,
+        held: searchDashHeld,
+      });
+      this.searchDashQueued = false;
     }
 
     if (this.lockQueued) {
@@ -242,8 +262,9 @@ export class PlayerInputController {
 
   resetBattleInput(): void {
     this.pressedCodes.clear();
-    this.attackQueuedSlot = null;
-    this.dashQueued = false;
+    this.heldSearchDashCodes.clear();
+    this.queuedAttackButton = null;
+    this.searchDashQueued = false;
     this.lockQueued = false;
     this.confirmQueued = false;
     this.pauseQueued = false;
@@ -254,11 +275,8 @@ export class PlayerInputController {
 
     if (gamepad === undefined || gamepad === null) {
       this.gamepadConnected = false;
-      this.previousAttackButton = false;
-      this.previousSpecialButton = false;
-      this.previousDashButton = false;
-      this.previousLockButton = false;
-      this.previousPauseButton = false;
+      this.gamepadSearchDashHeld = false;
+      this.previousGamepadButtons.clear();
       return { ...ZERO_VECTOR };
     }
 
@@ -271,58 +289,58 @@ export class PlayerInputController {
       gamepad.axes[0] ?? 0,
       gamepad.axes[1] ?? 0,
     );
-    const attackButton = buttonPressed(gamepad, 0);
-    const specialButton = buttonPressed(gamepad, 2);
-    const dashButton = buttonPressed(gamepad, 1);
-    const lockButton = buttonPressed(gamepad, 4);
-    const pauseButton = buttonPressed(gamepad, 9);
+    let anyButtonPressed = false;
 
-    if (attackButton && !this.previousAttackButton) {
-      this.attackQueuedSlot = 0;
+    for (const [index, button] of Object.entries(GAMEPAD_ATTACK_BUTTON_INDEXES)) {
+      if (this.gamepadRisingEdge(gamepad, Number(index))) {
+        this.queuedAttackButton = button;
+      }
+    }
+
+    if (this.gamepadRisingEdge(gamepad, GAMEPAD_CONFIRM_INDEX)) {
       this.confirmQueued = true;
     }
 
-    if (specialButton && !this.previousSpecialButton) {
-      this.attackQueuedSlot = 1;
+    this.gamepadSearchDashHeld = buttonPressed(gamepad, GAMEPAD_SEARCH_DASH_INDEX);
+    if (this.gamepadRisingEdge(gamepad, GAMEPAD_SEARCH_DASH_INDEX)) {
+      this.searchDashQueued = true;
     }
 
-    if (dashButton && !this.previousDashButton) {
-      this.dashQueued = true;
-    }
-
-    if (lockButton && !this.previousLockButton) {
+    if (this.gamepadRisingEdge(gamepad, GAMEPAD_LOCK_INDEX)) {
       this.lockQueued = true;
     }
 
-    if (pauseButton && !this.previousPauseButton) {
+    if (this.gamepadRisingEdge(gamepad, GAMEPAD_PAUSE_INDEX)) {
       this.pauseQueued = true;
     }
 
-    if (
-      vectorLength(move) > 0 ||
-      attackButton ||
-      specialButton ||
-      dashButton ||
-      lockButton ||
-      pauseButton
-    ) {
+    for (const index of TRACKED_GAMEPAD_BUTTONS) {
+      if (buttonPressed(gamepad, index)) {
+        anyButtonPressed = true;
+        this.previousGamepadButtons.add(index);
+      } else {
+        this.previousGamepadButtons.delete(index);
+      }
+    }
+
+    if (vectorLength(move) > 0 || anyButtonPressed) {
       this.status = { source: "gamepad", control: "LEFT STICK" };
     }
 
-    this.previousAttackButton = attackButton;
-    this.previousSpecialButton = specialButton;
-    this.previousDashButton = dashButton;
-    this.previousLockButton = lockButton;
-    this.previousPauseButton = pauseButton;
     return move;
+  }
+
+  /** True only on the frame the button goes down, so held buttons stay quiet. */
+  private gamepadRisingEdge(gamepad: Gamepad, index: number): boolean {
+    return buttonPressed(gamepad, index) && !this.previousGamepadButtons.has(index);
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     const code = resolveKeyboardCode(event);
     const isDirection = code in DIRECTION_BY_CODE;
     const isAction =
-      DASH_CODES.has(code) ||
-      attackSlotForCode(code) !== null ||
+      SEARCH_DASH_CODES.has(code) ||
+      attackButtonForCode(code) !== null ||
       code === LOCK_CODE ||
       CONFIRM_CODES.has(code) ||
       code === PAUSE_CODE;
@@ -343,12 +361,23 @@ export class PlayerInputController {
 
     if (isDirection) {
       this.pressedCodes.add(code);
-    } else if (event.repeat) {
-      // Held buttons must not refill the buffer every frame.
-    } else if (attackSlotForCode(code) !== null) {
-      this.attackQueuedSlot = attackSlotForCode(code);
-    } else if (DASH_CODES.has(code)) {
-      this.dashQueued = true;
+      return;
+    }
+
+    // The held state still has to track a repeat, only the edge must not.
+    if (SEARCH_DASH_CODES.has(code)) {
+      this.searchDashQueued ||= !event.repeat;
+      this.heldSearchDashCodes.add(code);
+      return;
+    }
+
+    if (event.repeat) {
+      return;
+    }
+
+    const attackButton = attackButtonForCode(code);
+    if (attackButton !== null) {
+      this.queuedAttackButton = attackButton;
     } else if (code === LOCK_CODE) {
       this.lockQueued = true;
     }
@@ -358,8 +387,8 @@ export class PlayerInputController {
     const code = resolveKeyboardCode(event);
     if (
       code in DIRECTION_BY_CODE ||
-      DASH_CODES.has(code) ||
-      attackSlotForCode(code) !== null ||
+      SEARCH_DASH_CODES.has(code) ||
+      attackButtonForCode(code) !== null ||
       code === LOCK_CODE ||
       CONFIRM_CODES.has(code) ||
       code === PAUSE_CODE
@@ -367,6 +396,7 @@ export class PlayerInputController {
       event.preventDefault();
     }
     this.pressedCodes.delete(code);
+    this.heldSearchDashCodes.delete(code);
   };
 
   private readonly handleVisibilityChange = (): void => {
@@ -377,10 +407,7 @@ export class PlayerInputController {
 
   private readonly clearHeldInput = (): void => {
     this.resetBattleInput();
-    this.previousAttackButton = false;
-    this.previousSpecialButton = false;
-    this.previousDashButton = false;
-    this.previousLockButton = false;
-    this.previousPauseButton = false;
+    this.gamepadSearchDashHeld = false;
+    this.previousGamepadButtons.clear();
   };
 }

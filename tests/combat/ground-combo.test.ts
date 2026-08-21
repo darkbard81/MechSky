@@ -8,7 +8,7 @@ import { SimulationWorld } from "../../src/sim/world/world";
 const ATTACK: CommandIntent = {
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 0,
+  button: "A",
 };
 
 /** Player standing just inside the first hit's reach, facing the target. */

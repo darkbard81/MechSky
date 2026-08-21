@@ -46,6 +46,12 @@ Z → Z → X → Shift → Z → Z → X
 공중에 뜬 적이 있을 때 homing chase로 전환된다. CDP 입력 재현은 이미 remote debugging
 상태로 열린 Chromium에 `npm run demo:m3`를 실행한다.
 
+M8부터 `Z`/`X`/`C`는 Attack A/B/C이고(gamepad `A`/`X`/`Y`), 콤보 체인을 직접 가리키지
+않는다. 눌린 순간의 입력이 SR/SD/LR/ND 중 어느 장착 위치에서 탐색을 시작할지 정하고,
+한 콤보 안에서 이미 쓴 위치는 건너뛴다. 현재 loadout은 A/B 두 무기를 네 컨텍스트에
+반복 배치해 위 조작이 그대로 유지되며 C열은 비어 있다. 자세한 계약은
+[`documents/m8-contextual-loadout.md`](documents/m8-contextual-loadout.md).
+
 `npm run check`는 ESLint, renderer/Electron TypeScript 검사, simulation 단위 테스트를
 순서대로 실행한다. ESLint는 `src/sim`에서 PixiJS, Electron, DOM, render/UI import를
 금지하여 simulation 경계를 유지한다.
@@ -92,7 +98,7 @@ combat을 추가하는 장면이 아니라, snapshot tick에서 파생된 1,000�
 ```js
 window.__GAME_DEBUG__.load("air-combo");
 window.__GAME_DEBUG__.step(91);
-window.__GAME_DEBUG__.dump().stateHash; // a395bcca
+window.__GAME_DEBUG__.dump().stateHash; // d12d0848
 window.__GAME_DEBUG__.toggle("hitbox");
 window.__GAME_DEBUG__.toggle("combat");
 window.__GAME_DEBUG__.toggle("performance");

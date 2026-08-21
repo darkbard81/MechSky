@@ -119,7 +119,12 @@ describe("SimulationWorld", () => {
 
   it("runs dash for exact ticks and rejects it during cooldown", () => {
     const world = new SimulationWorld(openArenaRecipe());
-    const dash: CommandIntent = { type: "dash", fighterId: PLAYER_FIGHTER_ID };
+    const dash: CommandIntent = {
+      type: "search-dash",
+      fighterId: PLAYER_FIGHTER_ID,
+      pressed: true,
+      held: true,
+    };
 
     world.step([move(1, 0), dash]);
     expect(world.getFrame().current.player.state).toBe("dashing");
@@ -148,7 +153,12 @@ describe("SimulationWorld", () => {
 
   it("keeps facing aligned with dash velocity until dash ends", () => {
     const world = new SimulationWorld(openArenaRecipe());
-    const dash: CommandIntent = { type: "dash", fighterId: PLAYER_FIGHTER_ID };
+    const dash: CommandIntent = {
+      type: "search-dash",
+      fighterId: PLAYER_FIGHTER_ID,
+      pressed: true,
+      held: true,
+    };
 
     world.step([move(1, 0), dash]);
     world.step([move(-1, 0)]);
@@ -197,5 +207,84 @@ describe("SimulationWorld", () => {
           },
         }),
     ).toThrow(/spawn/);
+  });
+
+  it("rejects an unusable search range, combo window, weapon, or loadout slot", () => {
+    for (const searchRange of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        () =>
+          new SimulationWorld({
+            ...HANGAR_TEST_BATTLE,
+            combat: { ...HANGAR_TEST_BATTLE.combat, searchRange },
+          }),
+      ).toThrow(/search range/iu);
+    }
+
+    expect(
+      () =>
+        new SimulationWorld({
+          ...HANGAR_TEST_BATTLE,
+          combat: { ...HANGAR_TEST_BATTLE.combat, comboSessionIdleFrames: 0 },
+        }),
+    ).toThrow(/combo session/iu);
+
+    expect(
+      () =>
+        new SimulationWorld({
+          ...HANGAR_TEST_BATTLE,
+          player: {
+            ...HANGAR_TEST_BATTLE.player,
+            loadout: {
+              ...HANGAR_TEST_BATTLE.player.loadout,
+              "long-range": { A: "no-such-weapon", B: null, C: null },
+            },
+          },
+        }),
+    ).toThrow(/no-such-weapon/);
+
+    expect(
+      () =>
+        new SimulationWorld({
+          ...HANGAR_TEST_BATTLE,
+          combat: {
+            ...HANGAR_TEST_BATTLE.combat,
+            weapons: {
+              weapons: {
+                ...HANGAR_TEST_BATTLE.combat.weapons.weapons,
+                "mech-basic-combo": {
+                  id: "mech-basic-combo",
+                  entryChains: { grounded: "no-such-chain", airborne: null },
+                },
+              },
+            },
+          },
+        }),
+    ).toThrow(/no-such-chain/);
+  });
+
+  it("tracks the combat target and its planar distance every tick", () => {
+    const world = new SimulationWorld(HANGAR_TEST_BATTLE);
+    const initial = world.getFrame().current;
+    const { player, enemy } = initial;
+    const expected = Math.hypot(
+      HANGAR_TEST_BATTLE.enemy.spawn.x - HANGAR_TEST_BATTLE.player.spawn.x,
+      HANGAR_TEST_BATTLE.enemy.spawn.y - HANGAR_TEST_BATTLE.player.spawn.y,
+    );
+
+    expect(player.combatTargetId).toBe(enemy.id);
+    expect(player.combatTargetDistance).toBeCloseTo(expected, 6);
+    expect(enemy.combatTargetId).toBe(player.id);
+
+    world.step([move(1, 0)]);
+    const moved = world.getFrame().current;
+    const currentDistance = Math.hypot(
+      moved.enemy.body.position.x - moved.player.body.position.x,
+      moved.enemy.body.position.y - moved.player.body.position.y,
+    );
+
+    expect(moved.player.body.position).not.toEqual(initial.player.body.position);
+    expect(moved.player.combatTargetDistance).toBeCloseTo(currentDistance, 6);
+    expect(moved.enemy.combatTargetDistance).toBeCloseTo(currentDistance, 6);
+    expect(moved.player.combatTargetDistance).not.toBeCloseTo(expected, 6);
   });
 });

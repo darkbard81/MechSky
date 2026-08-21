@@ -11,7 +11,7 @@ import { SimulationWorld } from "../../src/sim/world/world";
 const ENEMY_ATTACK: CommandIntent = {
   type: "attack",
   fighterId: ENEMY_FIGHTER_ID,
-  slot: 0,
+  button: "A",
 };
 
 function duelRecipe(playerHealth = HANGAR_TEST_BATTLE.player.health): BattleRecipe {
@@ -67,7 +67,7 @@ describe("enemy combat through the shared world path", () => {
       {
         type: "attack",
         fighterId: PLAYER_FIGHTER_ID,
-        slot: 0,
+        button: "A",
       },
     ]);
     expect(terminal.current.battleOutcome).toBe("defeat");
@@ -91,7 +91,7 @@ describe("enemy combat through the shared world path", () => {
     const finisher: CommandIntent = {
       type: "attack",
       fighterId: PLAYER_FIGHTER_ID,
-      slot: 1,
+      button: "B",
     };
 
     world.step([finisher]);
@@ -105,7 +105,7 @@ describe("enemy combat through the shared world path", () => {
 
     const playerAttack = atZero.player.attackId;
     world.step([
-      { type: "attack", fighterId: PLAYER_FIGHTER_ID, slot: 0 },
+      { type: "attack", fighterId: PLAYER_FIGHTER_ID, button: "A" },
     ]);
     expect(world.getFrame().current.player.attackId).toBe(playerAttack);
 

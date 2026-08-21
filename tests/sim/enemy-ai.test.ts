@@ -103,7 +103,7 @@ describe("enemy AI CommandIntent decisions", () => {
     expect(intents).toContainEqual({
       type: "attack",
       fighterId: ENEMY_FIGHTER_ID,
-      slot: 0,
+      button: "A",
     });
     expect(ai.state).toBe("attacking");
   });
@@ -131,7 +131,7 @@ describe("enemy AI CommandIntent decisions", () => {
     const attack: CommandIntent = {
       type: "attack",
       fighterId: PLAYER_FIGHTER_ID,
-      slot: 0,
+      button: "A",
     };
 
     world.step([attack]);
@@ -142,8 +142,10 @@ describe("enemy AI CommandIntent decisions", () => {
     const intents = ai.decide(world.getFrame().current);
 
     expect(intents).toContainEqual({
-      type: "dash",
+      type: "search-dash",
       fighterId: ENEMY_FIGHTER_ID,
+      pressed: true,
+      held: true,
     });
     expect(ai.state).toBe("evading");
   });

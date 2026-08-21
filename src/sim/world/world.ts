@@ -9,13 +9,38 @@ import {
   requireAttack,
   resolveAttackStart,
 } from "../combat/attack-system";
+import {
+  ATTACK_CONTEXT_CYCLE,
+  resolvePreferredAttackContext,
+  type AttackContext,
+} from "../combat/attack-context";
+import {
+  combatTargetDistance,
+  resolveCombatTarget,
+} from "../combat/combat-target";
+import {
+  advanceComboSession,
+  createComboSession,
+  endComboSession,
+  type ComboSessionEndReason,
+} from "../combat/combo-session";
 import { HitResolver } from "../combat/hit-system";
+import {
+  ATTACK_BUTTONS,
+  isAttackButton,
+  type ContextualLoadout,
+} from "../combat/loadout";
+import {
+  requireWeapon,
+  validateWeaponLibrary,
+  type WeaponLibrary,
+} from "../combat/weapon-definition";
 import {
   cancelTagsAt,
   resolveAttackPhase,
   type AttackPhase,
 } from "../combat/attack-timeline";
-import type { CommandIntent } from "../input/command-intent";
+import type { AttackButton, CommandIntent } from "../input/command-intent";
 import {
   clampVectorMagnitude,
   moveVectorToward,
@@ -85,6 +110,25 @@ export interface FighterSnapshot {
   readonly groundSlamPending: boolean;
   readonly downedFrames: number;
   readonly downedDurationFrames: number;
+  /** Combo chain the active attack belongs to, and its step inside it. */
+  readonly chainId: string | null;
+  readonly chainIndex: number;
+  /** Weapon and mounting position the active attack entered through. */
+  readonly weaponId: string | null;
+  readonly sourceButton: AttackButton | null;
+  readonly sourceContext: AttackContext | null;
+  readonly sourceSlotIndex: number | null;
+  readonly combatTargetId: EntityId | null;
+  readonly combatTargetDistance: number | null;
+  readonly searchDashHeld: boolean;
+  readonly searchDashActive: boolean;
+  readonly bufferedAttackButton: AttackButton | null;
+  readonly bufferedAttackContext: AttackContext | null;
+  /** Lower 12 bits: mounting positions spent in the open combo session. */
+  readonly usedLoadoutSlotsMask: number;
+  readonly comboSessionActive: boolean;
+  readonly comboSessionIdleFrames: number;
+  readonly comboSessionEndReason: ComboSessionEndReason | null;
 }
 
 export interface SimulationSnapshot {
@@ -96,6 +140,8 @@ export interface SimulationSnapshot {
     readonly center: Readonly<Vector2>;
     readonly radius: number;
   };
+  /** Planar radius that splits short range from long range this battle. */
+  readonly searchRange: number;
   readonly player: FighterSnapshot;
   readonly enemy: FighterSnapshot;
   /** Live attack hitboxes this frame, for debug overlays only. */
@@ -113,8 +159,9 @@ export interface SimulationStepObserver {
 }
 
 interface TickCommands {
-  readonly attackSlot: number | null;
-  readonly dashRequested: boolean;
+  readonly attackButton: AttackButton | null;
+  readonly searchDashPressed: boolean;
+  readonly searchDashHeld: boolean;
   readonly lockRequested: boolean;
   readonly move: Vector2;
 }
@@ -211,16 +258,24 @@ export function validateRecipe(recipe: BattleRecipe): void {
     throw new RangeError("Combat buffer and combo reset windows must be valid frame counts.");
   }
 
+  if (
+    !Number.isInteger(combat.comboSessionIdleFrames) ||
+    combat.comboSessionIdleFrames < 1
+  ) {
+    throw new RangeError("Combo session idle window must be a positive frame count.");
+  }
+
   const positiveCombatValues = [
     combat.gravity,
     combat.maximumFallSpeed,
     combat.homingSpeed,
     combat.homingVerticalSpeed,
     combat.homingStopDistance,
+    combat.searchRange,
   ];
   if (positiveCombatValues.some((value) => !Number.isFinite(value) || value <= 0)) {
     throw new RangeError(
-      "Combat gravity, fall speed, homing speeds, and homing stop distance must be positive.",
+      "Combat gravity, fall speed, homing speeds, homing stop distance, and search range must be positive.",
     );
   }
 
@@ -239,13 +294,28 @@ export function validateRecipe(recipe: BattleRecipe): void {
     }
   }
 
+  validateWeaponLibrary(combat.weapons, combat.library);
+
   for (const fighter of [recipe.player, recipe.enemy]) {
-    for (const chainId of [
-      ...fighter.attackChains.grounded,
-      ...fighter.attackChains.airborne,
-    ]) {
-      if (chainId !== null && combat.library.chains[chainId] === undefined) {
-        throw new RangeError(`Attack chain '${chainId}' is not in the attack library.`);
+    validateLoadout(fighter.loadout, combat.weapons);
+  }
+}
+
+function validateLoadout(loadout: ContextualLoadout, weapons: WeaponLibrary): void {
+  for (const context of ATTACK_CONTEXT_CYCLE) {
+    const row: unknown = loadout[context];
+    if (row === null || typeof row !== "object") {
+      throw new RangeError(`Loadout is missing the '${context}' row.`);
+    }
+
+    for (const button of ATTACK_BUTTONS) {
+      const weaponId = loadout[context][button];
+      if (weaponId === undefined) {
+        throw new RangeError(`Loadout slot ${context}/${button} is missing.`);
+      }
+
+      if (weaponId !== null) {
+        requireWeapon(weapons, weaponId);
       }
     }
   }
@@ -258,11 +328,17 @@ function copyFighterRecipe(recipe: FighterRecipe): FighterRecipe {
     radius: recipe.radius,
     bodyHeight: recipe.bodyHeight,
     health: recipe.health,
-    attackChains: {
-      grounded: [...recipe.attackChains.grounded],
-      airborne: [...recipe.attackChains.airborne],
-    },
+    loadout: copyLoadout(recipe.loadout),
     movement: { ...recipe.movement },
+  };
+}
+
+function copyLoadout(loadout: ContextualLoadout): ContextualLoadout {
+  return {
+    "short-range": { ...loadout["short-range"] },
+    "search-dash": { ...loadout["search-dash"] },
+    "long-range": { ...loadout["long-range"] },
+    "normal-dash": { ...loadout["normal-dash"] },
   };
 }
 
@@ -278,6 +354,11 @@ function copyRecipe(recipe: BattleRecipe): BattleRecipe {
     enemyAi: { ...recipe.enemyAi },
     combat: { ...recipe.combat },
   };
+}
+
+/** Search Dash movement is either a ground dash or a homing chase in flight. */
+function isSearchDashActive(fighter: Fighter, tick: number): boolean {
+  return fighter.homingTargetId !== null || tick < fighter.dashEndExclusiveTick;
 }
 
 function createBody(recipe: FighterRecipe): Body {
@@ -308,13 +389,14 @@ function createFighter(recipe: FighterRecipe, facing: Vector2): Fighter {
     action: createIdleAction(),
     hitStopFrames: 0,
     attackBufferFrames: 0,
-    bufferedAttackSlot: null,
+    bufferedAttack: null,
     comboHits: 0,
     comboResetFrames: 0,
-    attackChains: {
-      grounded: [...recipe.attackChains.grounded],
-      airborne: [...recipe.attackChains.airborne],
-    },
+    loadout: copyLoadout(recipe.loadout),
+    comboSession: createComboSession(),
+    searchDashHeld: false,
+    combatTargetId: null,
+    combatTargetDistance: null,
     homingTargetId: null,
     homingEndExclusiveTick: 0,
     groundSlamPending: false,
@@ -326,8 +408,9 @@ function reduceCommands(
   intents: readonly CommandIntent[],
   fighterId: EntityId,
 ): TickCommands {
-  let attackSlot: number | null = null;
-  let dashRequested = false;
+  let attackButton: AttackButton | null = null;
+  let searchDashPressed = false;
+  let searchDashHeld = false;
   let lockRequested = false;
   let move: Vector2 = { ...ZERO_VECTOR };
 
@@ -343,12 +426,13 @@ function reduceCommands(
             ? clampVectorMagnitude(intent.direction)
             : { ...ZERO_VECTOR };
         break;
-      case "dash":
-        dashRequested = true;
+      case "search-dash":
+        searchDashPressed ||= intent.pressed;
+        searchDashHeld ||= intent.held;
         break;
       case "attack":
-        if (Number.isInteger(intent.slot) && intent.slot >= 0) {
-          attackSlot = intent.slot;
+        if (isAttackButton(intent.button)) {
+          attackButton = intent.button;
         }
         break;
       case "lock-target":
@@ -357,7 +441,7 @@ function reduceCommands(
     }
   }
 
-  return { attackSlot, dashRequested, lockRequested, move };
+  return { attackButton, searchDashPressed, searchDashHeld, lockRequested, move };
 }
 
 function integrateBody(body: Body): void {
@@ -401,8 +485,11 @@ function decelerate(fighter: Fighter, rate: number): void {
 export class SimulationWorld {
   private readonly player: Fighter;
   private readonly enemy: Fighter;
+  /** Stable roster so per-tick target and hit loops allocate nothing. */
+  private readonly fighters: readonly Fighter[];
   private readonly recipe: BattleRecipe;
   private readonly library: AttackLibrary;
+  private readonly weapons: WeaponLibrary;
   private readonly hits = new HitResolver();
   private events: SimEvent[] = [];
   private tick = 0;
@@ -415,6 +502,7 @@ export class SimulationWorld {
     validateRecipe(recipe);
     this.recipe = copyRecipe(recipe);
     this.library = this.recipe.combat.library;
+    this.weapons = this.recipe.combat.weapons;
 
     const toEnemy = normalizeOrZero({
       x: this.recipe.enemy.spawn.x - this.recipe.player.spawn.x,
@@ -422,6 +510,9 @@ export class SimulationWorld {
     });
     this.player = createFighter(this.recipe.player, toEnemy.x === 0 && toEnemy.y === 0 ? { x: 1, y: 0 } : toEnemy);
     this.enemy = createFighter(this.recipe.enemy, { x: -toEnemy.x, y: -toEnemy.y });
+    this.fighters = Object.freeze([this.player, this.enemy]);
+    this.updateCombatTarget(this.player);
+    this.updateCombatTarget(this.enemy);
 
     this.currentSnapshot = this.createSnapshot(0);
     this.previousSnapshot = this.createSnapshot(0);
@@ -443,10 +534,14 @@ export class SimulationWorld {
     const enemyCommands = reduceCommands(activeIntents, this.enemy.id);
 
     this.updateDownedFighters();
-    this.updateAttackBuffer(this.player, playerCommands);
-    this.updateAttackBuffer(this.enemy, enemyCommands);
     this.updateLock(this.player, this.enemy, playerCommands);
     this.updateLock(this.enemy, this.player, enemyCommands);
+    this.updateCombatTarget(this.player);
+    this.updateCombatTarget(this.enemy);
+    this.player.searchDashHeld = playerCommands.searchDashHeld;
+    this.enemy.searchDashHeld = enemyCommands.searchDashHeld;
+    this.updateAttackBuffer(this.player, playerCommands, tick);
+    this.updateAttackBuffer(this.enemy, enemyCommands, tick);
     this.applyCommandFacing(this.player, playerCommands);
     this.applyCommandFacing(this.enemy, enemyCommands);
     this.startBufferedAttack(this.player, this.enemy);
@@ -460,6 +555,10 @@ export class SimulationWorld {
     this.advanceActions();
     this.updateCombo(this.player);
     this.updateCombo(this.enemy);
+    this.updateComboSession(this.player);
+    this.updateComboSession(this.enemy);
+    this.updateCombatTarget(this.player);
+    this.updateCombatTarget(this.enemy);
 
     this.tick = tick;
     this.battleEnding ??=
@@ -491,19 +590,68 @@ export class SimulationWorld {
     return drained;
   }
 
-  private updateAttackBuffer(fighter: Fighter, commands: TickCommands): void {
-    if (commands.attackSlot !== null) {
+  private updateCombatTarget(fighter: Fighter): void {
+    const target = resolveCombatTarget(fighter, this.fighters);
+    fighter.combatTargetId = target === null ? null : target.id;
+    fighter.combatTargetDistance =
+      target === null ? null : combatTargetDistance(fighter, target);
+  }
+
+  /**
+   * Buffers the request together with the context it was pressed in. Nothing
+   * later recomputes that context, so releasing a direction while the swing
+   * waits for its cancel window cannot swap the weapon under the player.
+   */
+  private updateAttackBuffer(
+    fighter: Fighter,
+    commands: TickCommands,
+    tick: number,
+  ): void {
+    if (commands.attackButton !== null) {
       fighter.attackBufferFrames = this.recipe.combat.inputBufferFrames;
-      fighter.bufferedAttackSlot = commands.attackSlot;
+      fighter.bufferedAttack = {
+        button: commands.attackButton,
+        preferredContext: resolvePreferredAttackContext({
+          move: commands.move,
+          searchDashPressed: commands.searchDashPressed,
+          searchDashHeld: commands.searchDashHeld,
+          searchDashActive: isSearchDashActive(fighter, tick),
+          targetDistance: fighter.combatTargetDistance,
+          searchRange: this.recipe.combat.searchRange,
+        }),
+        requestedTick: tick,
+      };
       return;
     }
 
     if (fighter.attackBufferFrames > 0) {
       fighter.attackBufferFrames -= 1;
       if (fighter.attackBufferFrames === 0) {
-        fighter.bufferedAttackSlot = null;
+        fighter.bufferedAttack = null;
       }
     }
+  }
+
+  /**
+   * The combo's spent mounting positions live exactly as long as the combo.
+   * A later Heat milestone replaces the idle trigger with "cooling started"
+   * without touching anything else here.
+   */
+  private updateComboSession(fighter: Fighter): void {
+    const session = fighter.comboSession;
+
+    if (fighter.action.kind === "hitstun" || fighter.locomotion === "downed") {
+      endComboSession(session, "interrupted");
+      return;
+    }
+
+    advanceComboSession(
+      session,
+      fighter.action.kind === "attack" ||
+        fighter.hitStopFrames > 0 ||
+        fighter.attackBufferFrames > 0,
+      this.recipe.combat.comboSessionIdleFrames,
+    );
   }
 
   private updateLock(
@@ -531,7 +679,7 @@ export class SimulationWorld {
   }
 
   private startBufferedAttack(fighter: Fighter, target: Fighter): void {
-    const start = resolveAttackStart(fighter, this.library);
+    const start = resolveAttackStart(fighter, this.library, this.weapons);
 
     if (start === null) {
       return;
@@ -583,7 +731,7 @@ export class SimulationWorld {
       return;
     }
 
-    if (commands.dashRequested && tick >= fighter.dashReadyTick) {
+    if (commands.searchDashPressed && tick >= fighter.dashReadyTick) {
       if (this.canStartHomingChase(fighter, target)) {
         this.beginHomingChase(fighter, target, tick);
       } else if (
@@ -748,7 +896,7 @@ export class SimulationWorld {
   }
 
   private moveFighters(): void {
-    for (const fighter of [this.player, this.enemy]) {
+    for (const fighter of this.fighters) {
       if (fighter.hitStopFrames > 0) {
         continue;
       }
@@ -827,7 +975,7 @@ export class SimulationWorld {
   }
 
   private updateDownedFighters(): void {
-    for (const fighter of [this.player, this.enemy]) {
+    for (const fighter of this.fighters) {
       if (fighter.locomotion !== "downed") {
         continue;
       }
@@ -871,7 +1019,7 @@ export class SimulationWorld {
   }
 
   private advanceActions(): void {
-    for (const fighter of [this.player, this.enemy]) {
+    for (const fighter of this.fighters) {
       const advance = advanceAction(fighter, this.library);
 
       if (advance.attackFinished && !advance.attackConnected && advance.finishedAttackId !== null) {
@@ -948,6 +1096,22 @@ export class SimulationWorld {
       groundSlamPending: fighter.groundSlamPending,
       downedFrames: fighter.downedFrames,
       downedDurationFrames: this.recipe.combat.downedFrames,
+      chainId: fighter.action.chainId,
+      chainIndex: fighter.action.kind === "attack" ? fighter.action.chainIndex : -1,
+      weaponId: fighter.action.weaponId,
+      sourceButton: fighter.action.sourceButton,
+      sourceContext: fighter.action.sourceContext,
+      sourceSlotIndex: fighter.action.sourceSlotIndex,
+      combatTargetId: fighter.combatTargetId,
+      combatTargetDistance: fighter.combatTargetDistance,
+      searchDashHeld: fighter.searchDashHeld,
+      searchDashActive: isSearchDashActive(fighter, tick),
+      bufferedAttackButton: fighter.bufferedAttack?.button ?? null,
+      bufferedAttackContext: fighter.bufferedAttack?.preferredContext ?? null,
+      usedLoadoutSlotsMask: fighter.comboSession.usedLoadoutSlotsMask,
+      comboSessionActive: fighter.comboSession.active,
+      comboSessionIdleFrames: fighter.comboSession.idleFrames,
+      comboSessionEndReason: fighter.comboSession.lastEndReason,
     };
   }
 
@@ -971,6 +1135,7 @@ export class SimulationWorld {
         center: { ...this.recipe.arena.center },
         radius: this.recipe.arena.radius,
       },
+      searchRange: this.recipe.combat.searchRange,
       player: this.snapshotFighter(this.player, tick),
       enemy: this.snapshotFighter(this.enemy, tick),
       hitboxes,

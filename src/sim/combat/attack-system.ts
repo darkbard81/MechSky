@@ -1,12 +1,32 @@
 import type { ActiveHitbox, AttackDefinition, AttackLibrary } from "./attack-definition";
 import { attackDuration } from "./attack-definition";
 import { canCancelInto, isHitboxLive, resolveAttackPhase } from "./attack-timeline";
-import type { Fighter } from "../world/entity";
+import { ATTACK_CONTEXT_CYCLE, type AttackContext } from "./attack-context";
+import { endComboSession, markLoadoutSlotUsed } from "./combo-session";
+import {
+  ATTACK_BUTTONS,
+  loadoutSlotIndex,
+  selectLoadoutWeapon,
+  type ContextualLoadout,
+} from "./loadout";
+import {
+  requireWeapon,
+  weaponEntryChainId,
+  type WeaponLibrary,
+} from "./weapon-definition";
+import type { AttackButton } from "../input/command-intent";
+import type { Fighter, LocomotionState } from "../world/entity";
 
 export interface AttackStart {
   readonly attackId: string;
   readonly chainId: string;
   readonly chainIndex: number;
+  readonly weaponId: string;
+  readonly button: AttackButton;
+  readonly context: AttackContext;
+  readonly slotIndex: number;
+  /** False while a weapon walks its own chain; those steps cost no new slot. */
+  readonly consumesSlot: boolean;
 }
 
 export function requireAttack(
@@ -30,12 +50,33 @@ function chainAttackId(
   return library.chains[chainId]?.attacks[index];
 }
 
-function boundChainId(fighter: Fighter, slot: number): string | null {
-  const bindings =
-    fighter.locomotion === "airborne"
-      ? fighter.attackChains.airborne
-      : fighter.attackChains.grounded;
-  return bindings[slot] ?? null;
+/**
+ * Slots the fighter cannot enter right now because their weapon has no entry
+ * chain for its locomotion. Folding this into the excluded mask lets the cycle
+ * walk past a ground-only mount while airborne instead of refusing the input.
+ */
+function unusableSlotsMask(
+  loadout: ContextualLoadout,
+  weapons: WeaponLibrary,
+  locomotion: LocomotionState,
+): number {
+  let mask = 0;
+
+  for (const context of ATTACK_CONTEXT_CYCLE) {
+    for (const button of ATTACK_BUTTONS) {
+      const weaponId = loadout[context][button];
+      if (weaponId === null) {
+        continue;
+      }
+
+      const weapon = requireWeapon(weapons, weaponId);
+      if (weaponEntryChainId(weapon, locomotion) === null) {
+        mask |= 1 << loadoutSlotIndex(context, button);
+      }
+    }
+  }
+
+  return mask;
 }
 
 /** A fighter can open a new attack only from a neutral, unlocked action. */
@@ -43,35 +84,129 @@ function isActionable(fighter: Fighter): boolean {
   return fighter.action.kind === "none" && fighter.hitStopFrames === 0;
 }
 
+/** True while the active weapon still has an unplayed step for this button. */
+function hasChainContinuation(
+  fighter: Fighter,
+  library: AttackLibrary,
+  button: AttackButton,
+): boolean {
+  const action = fighter.action;
+
+  return (
+    action.kind === "attack" &&
+    action.chainId !== null &&
+    action.sourceButton === button &&
+    chainAttackId(library, action.chainId, action.chainIndex + 1) !== undefined
+  );
+}
+
+/**
+ * Advances the active weapon's own chain. The slot was already spent when the
+ * weapon entered, so a 1st-to-2nd hit never touches the used mask.
+ */
+function resolveChainContinuation(
+  fighter: Fighter,
+  library: AttackLibrary,
+): AttackStart | null {
+  const action = fighter.action;
+
+  if (
+    action.attackId === null ||
+    action.chainId === null ||
+    action.weaponId === null ||
+    action.sourceButton === null ||
+    action.sourceContext === null ||
+    action.sourceSlotIndex === null
+  ) {
+    return null;
+  }
+
+  const nextIndex = action.chainIndex + 1;
+  const nextId = chainAttackId(library, action.chainId, nextIndex);
+  if (nextId === undefined) {
+    return null;
+  }
+
+  const current = requireAttack(library, action.attackId);
+  const next = requireAttack(library, nextId);
+  if (!canCancelInto(current, action.frame, action.hasConnected, next)) {
+    return null;
+  }
+
+  return {
+    attackId: nextId,
+    chainId: action.chainId,
+    chainIndex: nextIndex,
+    weaponId: action.weaponId,
+    button: action.sourceButton,
+    context: action.sourceContext,
+    slotIndex: action.sourceSlotIndex,
+    consumesSlot: false,
+  };
+}
+
 /**
  * Decides what the fighter's buffered attack request should start this frame,
  * or null when nothing is allowed yet. Buffer expiry is handled by the caller
  * so a consumed request and an expired one stay distinguishable.
+ *
+ * The loadout only nominates a weapon. `canCancelInto` still decides whether
+ * the swing is legal, so a selection can never route around the tag graph.
  */
 export function resolveAttackStart(
   fighter: Fighter,
   library: AttackLibrary,
+  weapons: WeaponLibrary,
 ): AttackStart | null {
-  const slot = fighter.bufferedAttackSlot;
+  const request = fighter.bufferedAttack;
   if (
     fighter.attackBufferFrames <= 0 ||
     fighter.hitStopFrames > 0 ||
-    slot === null ||
+    request === null ||
     fighter.locomotion === "downed"
   ) {
     return null;
   }
 
-  const requestedChainId = boundChainId(fighter, slot);
-  if (requestedChainId === null) {
+  if (hasChainContinuation(fighter, library, request.button)) {
+    return resolveChainContinuation(fighter, library);
+  }
+
+  const selection = selectLoadoutWeapon(
+    fighter.loadout,
+    request.button,
+    request.preferredContext,
+    fighter.comboSession.usedLoadoutSlotsMask |
+      unusableSlotsMask(fighter.loadout, weapons, fighter.locomotion),
+  );
+  if (selection === null) {
     return null;
   }
 
+  const weapon = requireWeapon(weapons, selection.weaponId);
+  const chainId = weaponEntryChainId(weapon, fighter.locomotion);
+  if (chainId === null) {
+    return null;
+  }
+
+  const attackId = chainAttackId(library, chainId, 0);
+  if (attackId === undefined) {
+    return null;
+  }
+
+  const start: AttackStart = {
+    attackId,
+    chainId,
+    chainIndex: 0,
+    weaponId: selection.weaponId,
+    button: selection.button,
+    context: selection.context,
+    slotIndex: selection.slotIndex,
+    consumesSlot: true,
+  };
+
   if (isActionable(fighter)) {
-    const attackId = chainAttackId(library, requestedChainId, 0);
-    return attackId === undefined
-      ? null
-      : { attackId, chainId: requestedChainId, chainIndex: 0 };
+    return start;
   }
 
   if (fighter.action.kind !== "attack" || fighter.action.attackId === null) {
@@ -79,20 +214,12 @@ export function resolveAttackStart(
   }
 
   const current = requireAttack(library, fighter.action.attackId);
-  const sameChain = fighter.action.chainId === requestedChainId;
-  const nextIndex = sameChain ? fighter.action.chainIndex + 1 : 0;
-  const nextId = chainAttackId(library, requestedChainId, nextIndex);
-
-  if (nextId === undefined) {
-    return null;
-  }
-
-  const next = requireAttack(library, nextId);
+  const next = requireAttack(library, attackId);
   if (!canCancelInto(current, fighter.action.frame, fighter.action.hasConnected, next)) {
     return null;
   }
 
-  return { attackId: nextId, chainId: requestedChainId, chainIndex: nextIndex };
+  return start;
 }
 
 export function beginAttack(fighter: Fighter, start: AttackStart): void {
@@ -103,9 +230,18 @@ export function beginAttack(fighter: Fighter, start: AttackStart): void {
   fighter.action.hasConnected = false;
   fighter.action.chainIndex = start.chainIndex;
   fighter.action.hitTargets.clear();
+  fighter.action.weaponId = start.weaponId;
+  fighter.action.sourceButton = start.button;
+  fighter.action.sourceContext = start.context;
+  fighter.action.sourceSlotIndex = start.slotIndex;
   fighter.state = "attacking";
   fighter.attackBufferFrames = 0;
-  fighter.bufferedAttackSlot = null;
+  fighter.bufferedAttack = null;
+
+  // The mounting position is spent the moment its weapon actually enters.
+  if (start.consumesSlot) {
+    markLoadoutSlotUsed(fighter.comboSession, start.slotIndex);
+  }
 }
 
 export function clearAction(fighter: Fighter): void {
@@ -116,16 +252,17 @@ export function clearAction(fighter: Fighter): void {
   fighter.action.hasConnected = false;
   fighter.action.chainIndex = -1;
   fighter.action.hitTargets.clear();
+  fighter.action.weaponId = null;
+  fighter.action.sourceButton = null;
+  fighter.action.sourceContext = null;
+  fighter.action.sourceSlotIndex = null;
 }
 
 export function beginHitstun(fighter: Fighter, frames: number): void {
+  endComboSession(fighter.comboSession, "interrupted");
+  clearAction(fighter);
   fighter.action.kind = "hitstun";
-  fighter.action.attackId = null;
-  fighter.action.chainId = null;
-  fighter.action.frame = 0;
-  fighter.action.hasConnected = false;
   fighter.action.chainIndex = frames;
-  fighter.action.hitTargets.clear();
   fighter.state = "hitstun";
 }
 

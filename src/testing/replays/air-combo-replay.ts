@@ -15,16 +15,18 @@ export const AIR_COMBO_SCREENSHOT_TICK = 91;
 const PRIMARY: CommandIntent = Object.freeze({
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 0,
+  button: "A",
 });
 const SPECIAL: CommandIntent = Object.freeze({
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 1,
+  button: "B",
 });
 const CHASE: CommandIntent = Object.freeze({
-  type: "dash",
+  type: "search-dash",
   fighterId: PLAYER_FIGHTER_ID,
+  pressed: true,
+  held: true,
 });
 
 const INPUT_AT_TICK: Readonly<Record<number, CommandIntent>> = Object.freeze({

@@ -15,16 +15,18 @@ import {
 const PRIMARY: CommandIntent = {
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 0,
+  button: "A",
 };
 const SPECIAL: CommandIntent = {
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 1,
+  button: "B",
 };
 const CHASE: CommandIntent = {
-  type: "dash",
+  type: "search-dash",
   fighterId: PLAYER_FIGHTER_ID,
+  pressed: true,
+  held: true,
 };
 const M3_REPLAY_TICKS = 360;
 
@@ -45,7 +47,12 @@ function scriptedIntents(tick: number): readonly CommandIntent[] {
   ];
 
   if ([30, 210, 420].includes(tick)) {
-    intents.push({ type: "dash", fighterId: PLAYER_FIGHTER_ID });
+    intents.push({
+      type: "search-dash",
+      fighterId: PLAYER_FIGHTER_ID,
+      pressed: true,
+      held: true,
+    });
   }
 
   if ([90, 330].includes(tick)) {

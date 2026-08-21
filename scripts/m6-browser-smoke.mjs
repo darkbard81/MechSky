@@ -237,7 +237,7 @@ async function main() {
     assert.deepEqual(second, first);
     assert.equal(first.tick, 91);
     assert.equal(first.frame, 91);
-    assert.equal(first.hash, "a395bcca");
+    assert.equal(first.hash, "d12d0848");
     assert.ok(first.enemyHealth < 900);
     assert.ok(first.enemyElevation > 0);
 

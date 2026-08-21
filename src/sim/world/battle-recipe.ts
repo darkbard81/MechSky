@@ -1,4 +1,6 @@
 import type { AttackLibrary } from "../combat/attack-definition";
+import type { ContextualLoadout } from "../combat/loadout";
+import type { WeaponLibrary } from "../combat/weapon-definition";
 import type { EnemyAiRecipe } from "../ai/enemy-ai";
 import type { EntityId, MovementProfile, WorldPosition } from "./entity";
 
@@ -16,18 +18,20 @@ export interface FighterRecipe {
   readonly bodyHeight: number;
   readonly health: number;
   readonly movement: MovementRecipe;
-  readonly attackChains: {
-    readonly grounded: readonly (string | null)[];
-    readonly airborne: readonly (string | null)[];
-  };
+  readonly loadout: ContextualLoadout;
 }
 
 export interface CombatRecipe {
   readonly library: AttackLibrary;
+  readonly weapons: WeaponLibrary;
+  /** Planar radius inside which a target reads as short range instead of long. */
+  readonly searchRange: number;
   /** Frames a pressed attack stays buffered before it is discarded. */
   readonly inputBufferFrames: number;
   /** Idle frames after the last connect before the combo counter resets. */
   readonly comboResetFrames: number;
+  /** Idle frames that close a combo session and free every loadout slot. */
+  readonly comboSessionIdleFrames: number;
   readonly hitstunFriction: number;
   readonly gravity: number;
   readonly maximumFallSpeed: number;

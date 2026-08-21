@@ -1,5 +1,7 @@
 import { EnemyAiController } from "../ai/enemy-ai";
-import type { CommandIntent } from "../input/command-intent";
+import { ATTACK_CONTEXT_CYCLE } from "../combat/attack-context";
+import { isAttackButton } from "../combat/loadout";
+import type { AttackButton, CommandIntent } from "../input/command-intent";
 import type { BattleRecipe } from "../world/battle-recipe";
 import type { SimEvent } from "../world/sim-event";
 import {
@@ -8,9 +10,13 @@ import {
   type SimulationSnapshot,
 } from "../world/world";
 
-export const BATTLE_REPLAY_VERSION = 2;
-const LEGACY_BATTLE_REPLAY_VERSION = 1;
+export const BATTLE_REPLAY_VERSION = 3;
+const LEGACY_BATTLE_REPLAY_VERSIONS = [1, 2] as const;
 const LEGACY_HOMING_STOP_DISTANCE = 92;
+const LEGACY_SEARCH_RANGE = 180;
+const LEGACY_COMBO_SESSION_IDLE_FRAMES = 45;
+/** Legacy numeric attack slots, in the order the old adapter emitted them. */
+const LEGACY_ATTACK_BUTTONS = ["A", "B"] as const satisfies readonly AttackButton[];
 const UINT32_MAX = 0xffff_ffff;
 const FNV_OFFSET_BASIS = 0x811c_9dc5;
 const FNV_PRIME = 0x0100_0193;
@@ -50,25 +56,47 @@ function requireReplaySeed(value: unknown): number {
   return value;
 }
 
-function requireReplayVersion(
-  value: unknown,
-): typeof LEGACY_BATTLE_REPLAY_VERSION | typeof BATTLE_REPLAY_VERSION {
-  if (
-    value !== LEGACY_BATTLE_REPLAY_VERSION &&
-    value !== BATTLE_REPLAY_VERSION
-  ) {
-    throw new RangeError(
-      `Replay version must be ${LEGACY_BATTLE_REPLAY_VERSION} or ${BATTLE_REPLAY_VERSION}.`,
-    );
+type ReplaySourceVersion =
+  | (typeof LEGACY_BATTLE_REPLAY_VERSIONS)[number]
+  | typeof BATTLE_REPLAY_VERSION;
+
+function requireReplayVersion(value: unknown): ReplaySourceVersion {
+  const supported: readonly number[] = [
+    ...LEGACY_BATTLE_REPLAY_VERSIONS,
+    BATTLE_REPLAY_VERSION,
+  ];
+
+  if (typeof value !== "number" || !supported.includes(value)) {
+    throw new RangeError(`Replay version must be one of ${supported.join(", ")}.`);
   }
 
-  return value;
+  return value as ReplaySourceVersion;
 }
 
-function cloneIntent(value: unknown, playerId: number): CommandIntent {
+/** Legacy slot 0/1 map onto buttons A/B; there was no C. */
+function legacyAttackButton(slot: unknown): AttackButton {
+  if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0) {
+    throw new RangeError("Replay AttackIntent slot must be a non-negative integer.");
+  }
+
+  const button = LEGACY_ATTACK_BUTTONS[slot];
+  if (button === undefined) {
+    throw new RangeError(`Legacy attack slot ${slot} has no attack button.`);
+  }
+
+  return button;
+}
+
+function cloneIntent(
+  value: unknown,
+  playerId: number,
+  sourceVersion: ReplaySourceVersion,
+): CommandIntent {
   if (!isRecord(value) || value["fighterId"] !== playerId) {
     throw new RangeError("Every replay intent must target the recipe player fighter.");
   }
+
+  const legacy = sourceVersion !== BATTLE_REPLAY_VERSION;
 
   switch (value["type"]) {
     case "move": {
@@ -90,15 +118,41 @@ function cloneIntent(value: unknown, playerId: number): CommandIntent {
       });
     }
     case "attack": {
-      const slot = value["slot"];
-      if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0) {
-        throw new RangeError("Replay AttackIntent slot must be a non-negative integer.");
+      const button = legacy
+        ? legacyAttackButton(value["slot"])
+        : value["button"];
+      if (typeof button !== "string" || !isAttackButton(button)) {
+        throw new RangeError("Replay AttackIntent button must be A, B, or C.");
       }
 
-      return Object.freeze({ type: "attack", fighterId: playerId, slot });
+      return Object.freeze({ type: "attack", fighterId: playerId, button });
     }
     case "dash":
-      return Object.freeze({ type: "dash", fighterId: playerId });
+      if (!legacy) {
+        throw new RangeError("Replay intent type is not supported.");
+      }
+
+      // A legacy dash frame is exactly one frame with the button down.
+      return Object.freeze({
+        type: "search-dash",
+        fighterId: playerId,
+        pressed: true,
+        held: true,
+      });
+    case "search-dash": {
+      const pressed = value["pressed"];
+      const held = value["held"];
+      if (typeof pressed !== "boolean" || typeof held !== "boolean") {
+        throw new RangeError("Replay SearchDashIntent needs boolean pressed and held.");
+      }
+
+      return Object.freeze({
+        type: "search-dash",
+        fighterId: playerId,
+        pressed,
+        held,
+      });
+    }
     case "lock-target":
       return Object.freeze({ type: "lock-target", fighterId: playerId });
     default:
@@ -117,10 +171,80 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
+/**
+ * Rewrites a pre-M8 recipe into the 12-slot shape. Every legacy attack chain
+ * becomes a weapon repeated across all four contexts, which is what preserves
+ * the old meaning: back then one button reached one chain regardless of
+ * direction or Search Dash. The simulation never sees the legacy shape.
+ */
+function migrateLegacyRecipe(clone: Record<string, unknown>): void {
+  const combat = clone["combat"];
+  if (!isRecord(combat)) {
+    throw new RangeError("Legacy replay recipe must carry a combat section.");
+  }
+
+  combat["homingStopDistance"] ??= LEGACY_HOMING_STOP_DISTANCE;
+  combat["searchRange"] ??= LEGACY_SEARCH_RANGE;
+  combat["comboSessionIdleFrames"] ??= LEGACY_COMBO_SESSION_IDLE_FRAMES;
+
+  const weapons: Record<string, unknown> = {};
+  for (const label of ["player", "enemy"]) {
+    const fighter = clone[label];
+    if (!isRecord(fighter)) {
+      throw new RangeError(`Legacy replay recipe must carry a ${label} fighter.`);
+    }
+
+    fighter["loadout"] = migrateLegacyFighter(fighter, label, weapons);
+    delete fighter["attackChains"];
+  }
+
+  combat["weapons"] = { weapons };
+}
+
+function legacyChainId(chains: unknown, slot: number): string | null {
+  if (!Array.isArray(chains)) {
+    return null;
+  }
+
+  const chainId: unknown = chains[slot];
+  return typeof chainId === "string" ? chainId : null;
+}
+
+function migrateLegacyFighter(
+  fighter: Record<string, unknown>,
+  label: string,
+  weapons: Record<string, unknown>,
+): Record<string, Record<string, string | null>> {
+  const attackChains = fighter["attackChains"];
+  if (!isRecord(attackChains)) {
+    throw new RangeError(`Legacy ${label} recipe must carry attack chains.`);
+  }
+
+  const row: Record<string, string | null> = { A: null, B: null, C: null };
+  for (const [slot, button] of LEGACY_ATTACK_BUTTONS.entries()) {
+    const grounded = legacyChainId(attackChains["grounded"], slot);
+    const airborne = legacyChainId(attackChains["airborne"], slot);
+    if (grounded === null && airborne === null) {
+      continue;
+    }
+
+    const weaponId = `legacy-${label}-${button.toLowerCase()}`;
+    weapons[weaponId] = { id: weaponId, entryChains: { grounded, airborne } };
+    row[button] = weaponId;
+  }
+
+  const loadout: Record<string, Record<string, string | null>> = {};
+  for (const context of ATTACK_CONTEXT_CYCLE) {
+    loadout[context] = { ...row };
+  }
+
+  return loadout;
+}
+
 function cloneRecipe(
   value: unknown,
   seed: number,
-  sourceVersion: typeof LEGACY_BATTLE_REPLAY_VERSION | typeof BATTLE_REPLAY_VERSION,
+  sourceVersion: ReplaySourceVersion,
 ): BattleRecipe {
   if (!isRecord(value)) {
     throw new RangeError("Replay recipe must be an object.");
@@ -140,11 +264,8 @@ function cloneRecipe(
     throw new RangeError("Replay recipe did not serialize to an object.");
   }
 
-  if (sourceVersion === LEGACY_BATTLE_REPLAY_VERSION) {
-    const combat = clone["combat"];
-    if (isRecord(combat) && combat["homingStopDistance"] === undefined) {
-      combat["homingStopDistance"] = LEGACY_HOMING_STOP_DISTANCE;
-    }
+  if (sourceVersion !== BATTLE_REPLAY_VERSION) {
+    migrateLegacyRecipe(clone);
   }
 
   const candidate = { ...clone, seed } as unknown as BattleRecipe;
@@ -180,7 +301,9 @@ function parseReplayValue(value: unknown): BattleReplay {
 
     return Object.freeze({
       intents: Object.freeze(
-        frame["intents"].map((intent) => cloneIntent(intent, recipe.player.id)),
+        frame["intents"].map((intent) =>
+          cloneIntent(intent, recipe.player.id, sourceVersion),
+        ),
       ),
     });
   });

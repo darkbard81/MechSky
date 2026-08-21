@@ -16,7 +16,8 @@ Electron은 OS 셸과 제한된 IPC만 담당한다.
 3. [`assets/README.md`](assets/README.md) — asset pipeline 재현 명령과 QC 계약.
 4. [`README.md`](README.md) — 개발환경 사용법.
 
-현재 상태: **M0·M1·M2·M3·M4·M5·M6·M7 완료.**
+현재 상태: **M0·M1·M2·M3·M4·M5·M6·M7 완료. M8은 코드와 `npm run check`까지 끝났고
+화면 증거 대기 중** ([`documents/m8-contextual-loadout.md`](documents/m8-contextual-loadout.md)).
 
 ## 명령어
 
@@ -44,6 +45,8 @@ npm run demo:m7        # headed Browser + production Electron M7 증거 재생�
 5. 실제 전투 위치는 **그림자의 `(x, y)`**이고, sprite만 `elevation`만큼 위로 그린다. actor 정렬 키도 ground Y다 (`actorGroundSortKey`).
 6. movement collision(원 vs 경계/캐릭터)과 combat collision(hitbox vs hurtbox)을 절대 합치지 않는다.
 7. player와 AI 모두 `CommandIntent`만 사용한다. AI가 `enemy.attack()`처럼 직접 호출하지 않는다.
+   공격 intent는 A/B/C 버튼만 담고, SR/SD/LR/ND 컨텍스트 판정은 simulation이 한다.
+   장치 계층은 컨텍스트를 모른다.
 8. hit-stop은 world pause가 아니라 actor별 action clock 정지로 구현한다.
 9. 모든 randomness는 seeded PRNG를 거친다. `src/sim`에서 `Math.random`, `Date.now`,
    `performance`, `Date`는 ESLint가 차단한다. simulation은 tick으로만 시간을 센다.
@@ -62,7 +65,7 @@ src/sim/        renderer/플랫폼 독립 simulation
   input/        CommandIntent 타입 (장치 코드 아님)
   math/         vector2.ts
 src/input/      keyboard/gamepad 장치 → CommandIntent 어댑터
-src/content/    로직 없는 TS 데이터 모듈 (arena/actor/attack 정의)
+src/content/    로직 없는 TS 데이터 모듈 (arena/actor/attack/weapon/loadout 정의)
 src/render/     PixiJS 표현 계층 (pixi-renderer, battle-scene, actors/, camera/, assets/)
 src/ui/         Vanilla DOM UI (hud/)
 src/platform/   browser/electron 어댑터

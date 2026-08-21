@@ -190,7 +190,12 @@ export class EnemyAiController {
       this.evadeReadyTick = tick + this.recipe.evadeCooldownFrames;
       return [
         ...this.moveOnly(),
-        { type: "dash", fighterId: this.fighterId },
+        {
+          type: "search-dash",
+          fighterId: this.fighterId,
+          pressed: true,
+          held: true,
+        },
       ];
     }
 
@@ -212,7 +217,7 @@ export class EnemyAiController {
       this.attackReadyTick = tick + this.recipe.attackCooldownFrames;
       return [
         ...this.moveOnly(),
-        { type: "attack", fighterId: this.fighterId, slot: 0 },
+        { type: "attack", fighterId: this.fighterId, button: "A" },
       ];
     }
 

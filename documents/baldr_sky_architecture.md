@@ -1589,3 +1589,36 @@ ScreenDebug            ← camera transform이 걸리지 않는 화면 고정 ov
 `WorldDebug`는 hitbox처럼 월드 좌표를 따라가야 하는 overlay, `ScreenDebug`는 FPS나
 state 표시처럼 화면에 고정되어야 하는 overlay용이다. §17의 "Actors만 Y-sort" 규칙은
 그대로이며, `sortableChildren`은 `Actors`에만 켠다.
+
+## A4. 공격 버튼과 무기 사이에 12-slot contextual loadout을 둔다 (2026-08-21, M8)
+
+§9는 "무기를 클래스로 만들지 않는다", §10은 "cancel은 tag 기반"을 정한다. M8은 그
+사이에 라우팅 계층 하나를 추가한다. 두 원칙은 그대로다.
+
+```text
+AttackButton (A/B/C)
+  × AttackContext (SR/SD/LR/ND)
+  = 12 loadout slot → WeaponDefinition → ComboChain → AttackDefinition
+```
+
+- `AttackContext`는 **입력 라우팅 컨텍스트**이지 무기 타입이 아니다. `if (context ===
+  "long-range") fireProjectile()` 같은 분기를 만들지 않는다. 무엇을 하는지는 공격
+  데이터가 정한다.
+- context와 locomotion은 독립 축이다. `SD === Airborne`, `SR === Grounded`,
+  `ND === dashing state` 같은 결합을 금지한다.
+- `WeaponDefinition`은 subclass가 아니라 진입 `ComboChain`을 지정하는 데이터다.
+- 서로 다른 두 우선순위를 하나로 합치지 않는다. **preferred context resolver**
+  (방향 → ND, D held/active → SD, 거리 → SR/LR)는 순환의 시작점만 정하고,
+  **same-button cycle**(SR → SD → LR → ND → SR)은 그 다음 후보만 정한다.
+- 한 콤보 안에서 같은 **장착 위치**는 재사용할 수 없다. 추적 단위는 weapon id가 아니라
+  슬롯이므로 같은 무기를 두 슬롯에 얹으면 두 번 쓸 수 있다. 무기 내부 ComboChain의
+  단계 진행은 슬롯을 추가로 소비하지 않는다.
+- loadout selector는 후보를 지명할 뿐이다. §10의 `canCancelInto()`와 AttackTag graph가
+  최종 허가를 계속 소유하며, selector가 그것을 우회하지 않는다.
+- 공격 request는 눌린 tick의 preferred context를 buffer에 snapshot하고, 실행/cancel tick에
+  다시 계산하지 않는다.
+
+Heat는 M8 범위 밖이지만 `ComboSessionState`를 별도 경계로 두어 이후 "Heat cooling
+시작 → combo session 종료 → used slot mask reset"으로 연결할 수 있게 한다.
+
+상세와 완료 조건은 [`documents/m8-contextual-loadout.md`](m8-contextual-loadout.md).

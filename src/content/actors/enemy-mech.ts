@@ -1,5 +1,5 @@
 import type { FighterRecipe } from "../../sim/world/battle-recipe";
-import { ENEMY_MECH_STRIKE_CHAIN_ID } from "../attacks/enemy-mech-strike";
+import { ENEMY_MECH_LOADOUT } from "../weapons/mech-loadouts";
 
 export const ENEMY_MECH_ID = 2;
 
@@ -9,10 +9,7 @@ export const ENEMY_MECH = {
   radius: 30,
   bodyHeight: 112,
   health: 900,
-  attackChains: {
-    grounded: [ENEMY_MECH_STRIKE_CHAIN_ID, null],
-    airborne: [null, null],
-  },
+  loadout: ENEMY_MECH_LOADOUT,
   movement: {
     acceleration: 900,
     deceleration: 1_500,

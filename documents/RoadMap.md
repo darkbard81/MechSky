@@ -62,15 +62,20 @@
 | 행동 | 키보드 | Steam Deck / Gamepad |
 |---|---|---|
 | 이동 | `WASD` / 방향키 / NumPad 8방향 | 왼쪽 스틱 |
-| 주 공격 / 콤보 진행 | `Z` | `A` |
-| Launcher / 공중 Finisher | `X` | `X` |
-| Dash / 공중 추격 | `Shift` | `B` |
+| Attack A (주 공격 / 콤보 진행) | `Z` | `A` |
+| Attack B (Launcher / 공중 Finisher) | `X` | `X` |
+| Attack C (M8부터, 아직 비어 있음) | `C` | `Y` |
+| D / Search Dash (dash·공중 추격) | `Shift` | `B` |
 | 타깃 전환 | `Tab` | `LB` |
 | 일시 정지 | `Esc` | `Menu` |
 | 결과 후 재시작 | `Enter` | `A` |
 
 입력은 UI 이벤트가 simulation 객체를 직접 조작하지 않고 `CommandIntent`로 변환해
 고정 tick 경계에서 소비한다. 키보드와 gamepad는 동일한 intent를 생성한다.
+
+M8부터 A/B/C는 콤보 체인을 직접 가리키지 않고 SR/SD/LR/ND × A/B/C의 12개 장착
+위치를 거쳐 무기를 고른다. 장치 계층은 semantic 입력만 보내고 컨텍스트 판정은
+simulation이 한다. Search Dash 버튼은 rising edge와 held 상태를 함께 보낸다.
 
 ### 3.3 사용자가 화면에서 확인해야 하는 것
 
@@ -597,6 +602,37 @@ outline을 사용한다.
 - 24개 test file / 131개 unit test, M6 browser gate, production Browser/Electron release
   gate와 web/Electron build를 포함한 M7 최종 `npm run build` 통과
 - 사용자가 Browser/Electron 후보 실행 화면을 직접 확인하고 Gate G 승인
+
+### M8. SR/SD/LR/ND × ABC 12슬롯과 콤보 슬롯 선택 코어
+
+목표: 12개의 contextual 장착 위치를 데이터로 조합하고, 같은 버튼을 반복 입력했을 때
+미사용 슬롯이 `SR → SD → LR → ND` 순환으로 선택되게 한다. 12종의 실제 무기를 만드는
+단계가 아니다.
+
+구현:
+
+- Search target / search range 계약과 `resolvePreferredAttackContext()` (선행 이슈 #2)
+- `AttackButton` A/B/C, `WeaponDefinition`, `ContextualLoadout`, 12-slot selector
+- 콤보 안 동일 장착 위치 재사용 금지 (`usedLoadoutSlotsMask`)와 `ComboSessionState`
+- D / Search Dash held 상태를 replay가 복원 가능한 semantic 입력으로 승격
+- 기존 M7 attack chain을 weapon entry로 감싸는 migration loadout
+- replay v3와 v1/v2 → v3 parser migration
+- F7 Combat State에 target/preferred/slot/weapon/chain/used mask/session 노출
+
+승인 기준:
+
+- preferred context는 방향 → ND, D held/active → SD, 거리 → SR/LR 순으로만 결정된다.
+- 같은 버튼 반복 입력이 순환의 시작점에 따라 네 슬롯을 wrap-around로 순회한다.
+- 무기 내부 ComboChain 단계는 추가 슬롯을 소비하지 않는다.
+- loadout selector가 `canCancelInto()`와 AttackTag graph를 우회하지 않는다.
+- 기존 `Z → Z → X → Shift → Z → Z → X` 수직 슬라이스가 공격 단위까지 동일하다.
+- 동일 v3 replay가 반복 실행과 60/120/144 Hz render rate에서 같은 tick hash를 낸다.
+- `npm run check`가 통과한다.
+- Browser/Electron 화면 증거를 남긴다.
+
+완료 기록: 코드와 자동 검증은
+[`documents/m8-contextual-loadout.md`](./m8-contextual-loadout.md)에 정리했다.
+화면 증거(`documents/evidence/m8/`)는 사용자 확인 후 채운다.
 
 ## 8. 구현 파일 배치
 

@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   applyGamepadDeadzone,
-  attackSlotForCode,
+  attackButtonForCode,
   keyboardMoveVector,
   PlayerInputController,
   resolveKeyboardCode,
 } from "../../src/input/player-input";
 
 describe("player input mapping", () => {
-  it("maps Z and X to primary and launcher or finisher slots", () => {
-    expect(attackSlotForCode("KeyZ")).toBe(0);
-    expect(attackSlotForCode("KeyX")).toBe(1);
-    expect(attackSlotForCode("KeyL")).toBeNull();
+  it("maps Z, X, and C to attack buttons A, B, and C", () => {
+    expect(attackButtonForCode("KeyZ")).toBe("A");
+    expect(attackButtonForCode("KeyX")).toBe("B");
+    expect(attackButtonForCode("KeyC")).toBe("C");
+    expect(attackButtonForCode("KeyL")).toBeNull();
   });
 
-  it("emits gamepad X as slot 1 on the rising edge", () => {
+  it("emits gamepad X as attack button B on the rising edge", () => {
     const eventWindow = new EventTarget() as Window;
     const eventDocument = new EventTarget() as Document;
     let pressed = true;
@@ -42,7 +43,7 @@ describe("player input mapping", () => {
     expect(controller.sampleIntents()).toContainEqual({
       type: "attack",
       fighterId: 1,
-      slot: 1,
+      button: "B",
     });
     expect(controller.sampleIntents()).not.toContainEqual(
       expect.objectContaining({ type: "attack" }),
@@ -51,7 +52,7 @@ describe("player input mapping", () => {
     controller.sampleIntents();
     pressed = true;
     expect(controller.sampleIntents()).toContainEqual(
-      expect.objectContaining({ type: "attack", slot: 1 }),
+      expect.objectContaining({ type: "attack", button: "B" }),
     );
     controller.destroy();
   });
@@ -75,7 +76,11 @@ describe("player input mapping", () => {
 
     const frame = controller.sampleFrame();
     expect(frame.flow).toEqual({ confirm: true, pause: true });
-    expect(frame.intents).toContainEqual({ type: "attack", fighterId: 1, slot: 0 });
+    expect(frame.intents).toContainEqual({
+      type: "attack",
+      fighterId: 1,
+      button: "A",
+    });
     expect(controller.sampleFrame().flow).toEqual({ confirm: false, pause: false });
     controller.destroy();
   });

@@ -1,3 +1,7 @@
+import type { AttackContext, BufferedAttackRequest } from "../combat/attack-context";
+import type { ComboSessionState } from "../combat/combo-session";
+import type { ContextualLoadout } from "../combat/loadout";
+import type { AttackButton } from "../input/command-intent";
 import type { Vector2 } from "../math/vector2";
 
 export type EntityId = number;
@@ -50,6 +54,12 @@ export interface ActionState {
   chainIndex: number;
   /** Fighters already hit by the current attack, so one swing hits once. */
   hitTargets: Set<EntityId>;
+  /** Weapon whose entry chain this attack came from. */
+  weaponId: string | null;
+  /** Loadout slot the attack entered through, kept for debug and replay. */
+  sourceButton: AttackButton | null;
+  sourceContext: AttackContext | null;
+  sourceSlotIndex: number | null;
 }
 
 export interface MovementProfile {
@@ -80,13 +90,17 @@ export interface Fighter {
   hitStopFrames: number;
   /** Remaining life of a buffered attack request, in frames. */
   attackBufferFrames: number;
-  bufferedAttackSlot: number | null;
+  bufferedAttack: BufferedAttackRequest | null;
   comboHits: number;
   comboResetFrames: number;
-  readonly attackChains: {
-    readonly grounded: readonly (string | null)[];
-    readonly airborne: readonly (string | null)[];
-  };
+  /** Twelve contextual mounting positions this fighter attacks from. */
+  readonly loadout: ContextualLoadout;
+  comboSession: ComboSessionState;
+  /** D / Search Dash button state as of this tick. */
+  searchDashHeld: boolean;
+  /** Whoever the attack contexts and Search Dash measure against this tick. */
+  combatTargetId: EntityId | null;
+  combatTargetDistance: number | null;
   homingTargetId: EntityId | null;
   homingEndExclusiveTick: number;
   groundSlamPending: boolean;
@@ -102,5 +116,9 @@ export function createIdleAction(): ActionState {
     hasConnected: false,
     chainIndex: -1,
     hitTargets: new Set<EntityId>(),
+    weaponId: null,
+    sourceButton: null,
+    sourceContext: null,
+    sourceSlotIndex: null,
   };
 }

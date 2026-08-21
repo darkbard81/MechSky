@@ -1,9 +1,9 @@
 import { BitmapText, Container, Graphics } from "pixi.js";
-import { hashSimulationSnapshot } from "../../sim/replay/battle-replay";
 import type { SimulationSnapshot } from "../../sim/world/world";
 import type { BattlePresentation } from "../snapshot-interpolation";
 import {
   DEBUG_LAYER_ORDER,
+  formatCombatDebugLines,
   type DebugLayerName,
   type DebugRuntimeMetrics,
 } from "./debug-layers";
@@ -34,7 +34,7 @@ export class DebugOverlay {
   private readonly collision = new Graphics();
   private readonly hitbox = new Graphics();
   private readonly velocity = new Graphics();
-  private readonly combatPanel = createScreenPanel(310, 92);
+  private readonly combatPanel = createScreenPanel(310, 148);
   private readonly combatText = createDebugText(0xb9fbfb);
   private readonly performancePanel = createScreenPanel(276, 118);
   private readonly performanceText = createDebugText(0xffdc89);
@@ -52,8 +52,8 @@ export class DebugOverlay {
     this.performanceText.label = "Debug performance state";
     this.combatPanel.position.set(12, 118);
     this.combatText.position.set(22, 127);
-    this.performancePanel.position.set(12, 218);
-    this.performanceText.position.set(22, 227);
+    this.performancePanel.position.set(12, 274);
+    this.performanceText.position.set(22, 283);
     worldLayer.addChild(this.collision, this.hitbox, this.velocity);
     screenLayer.addChild(
       this.combatPanel,
@@ -178,14 +178,7 @@ export class DebugOverlay {
   }
 
   private presentCombat(snapshot: SimulationSnapshot): void {
-    const playerAction = snapshot.player.attackId ?? snapshot.player.actionKind;
-    const enemyAction = snapshot.enemy.attackId ?? snapshot.enemy.actionKind;
-    const text = [
-      `TICK ${snapshot.tick}  HASH ${hashSimulationSnapshot(snapshot)}`,
-      `P ${snapshot.player.state}/${snapshot.player.locomotion}  ${playerAction} ${snapshot.player.actionFrame}`,
-      `E ${snapshot.enemy.state}/${snapshot.enemy.locomotion}  ${enemyAction} ${snapshot.enemy.actionFrame}`,
-      `HITSTOP ${snapshot.player.hitStopFrames}/${snapshot.enemy.hitStopFrames}  OUTCOME ${snapshot.battleOutcome}`,
-    ].join("\n");
+    const text = formatCombatDebugLines(snapshot).join("\n");
 
     if (text !== this.lastCombatText) {
       this.lastCombatText = text;

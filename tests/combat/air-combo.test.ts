@@ -11,16 +11,18 @@ import { SimulationWorld, type SimulationSnapshot } from "../../src/sim/world/wo
 const PRIMARY: CommandIntent = {
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 0,
+  button: "A",
 };
 const SPECIAL: CommandIntent = {
   type: "attack",
   fighterId: PLAYER_FIGHTER_ID,
-  slot: 1,
+  button: "B",
 };
 const CHASE: CommandIntent = {
-  type: "dash",
+  type: "search-dash",
   fighterId: PLAYER_FIGHTER_ID,
+  pressed: true,
+  held: true,
 };
 
 function comboRecipe(): BattleRecipe {
