@@ -8,13 +8,17 @@ export class BattleSession {
   private simulation: SimulationWorld;
   private readonly enemyAi: EnemyAiController;
 
-  constructor(private readonly recipe: BattleRecipe) {
-    this.simulation = new SimulationWorld(recipe);
+  constructor(
+    private readonly recipe: BattleRecipe,
+    private readonly seed = recipe.seed,
+  ) {
+    const seededRecipe = { ...recipe, seed };
+    this.simulation = new SimulationWorld(seededRecipe);
     this.enemyAi = new EnemyAiController(
       recipe.enemy.id,
       recipe.player.id,
       recipe.enemyAi,
-      recipe.seed,
+      seed,
     );
   }
 
@@ -24,6 +28,14 @@ export class BattleSession {
 
   get enemyAiState(): EnemyAiState {
     return this.enemyAi.state;
+  }
+
+  get battleRecipe(): BattleRecipe {
+    return this.recipe;
+  }
+
+  get battleSeed(): number {
+    return this.seed;
   }
 
   step(playerIntents: readonly CommandIntent[]): void {
@@ -37,7 +49,7 @@ export class BattleSession {
 
   reset(): void {
     this.simulation.drainEvents();
-    this.simulation = new SimulationWorld(this.recipe);
-    this.enemyAi.reset(this.recipe.seed);
+    this.simulation = new SimulationWorld({ ...this.recipe, seed: this.seed });
+    this.enemyAi.reset(this.seed);
   }
 }

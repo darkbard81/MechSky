@@ -56,6 +56,7 @@ export class PixiBattleRenderer {
   private lifecycleGeneration = 0;
   private viewportHeight = -1;
   private viewportWidth = -1;
+  private frameMilliseconds = 1_000 / 60;
 
   async initialize(
     host: HTMLElement,
@@ -115,9 +116,18 @@ export class PixiBattleRenderer {
     }
 
     this.resizeSceneIfNeeded();
+    if (renderDeltaSeconds > 0) {
+      const measuredMilliseconds = renderDeltaSeconds * 1_000;
+      this.frameMilliseconds += (measuredMilliseconds - this.frameMilliseconds) * 0.12;
+    }
     this.battleScene.present(
       interpolateSimulationFrame(frame, alpha),
       renderDeltaSeconds,
+      {
+        framesPerSecond: this.frameMilliseconds > 0 ? 1_000 / this.frameMilliseconds : 0,
+        frameMilliseconds: this.frameMilliseconds,
+        projectileCount: this.battleScene.developmentProjectileCount,
+      },
     );
   }
 
@@ -142,6 +152,41 @@ export class PixiBattleRenderer {
     this.application.render();
   }
 
+  loadBattle(frame: SimulationFrame, projectileCount: number): void {
+    if (
+      !this.initialized ||
+      this.battleScene === undefined
+    ) {
+      throw new Error("Pixi renderer must be initialized before loading a battle.");
+    }
+
+    this.battleScene.load(frame.current);
+    this.battleScene.setDevelopmentProjectileCount(projectileCount);
+    this.frameMilliseconds = 1_000 / 60;
+    this.viewportHeight = -1;
+    this.viewportWidth = -1;
+    this.resizeSceneIfNeeded();
+    this.application.render();
+  }
+
+  setDevelopmentProjectileCount(count: number): void {
+    if (!this.initialized || this.battleScene === undefined) {
+      throw new Error(
+        "Pixi renderer must be initialized before configuring development projectiles.",
+      );
+    }
+
+    this.battleScene.setDevelopmentProjectileCount(count);
+  }
+
+  get developmentProjectileCount(): number {
+    return this.battleScene?.developmentProjectileCount ?? 0;
+  }
+
+  enabledDebugLayers(): readonly DebugLayerName[] {
+    return this.battleScene?.enabledDebugLayers() ?? [];
+  }
+
   toggleDebugLayer(layer: DebugLayerName): boolean {
     return this.battleScene?.toggleDebugLayer(layer) ?? false;
   }
@@ -163,6 +208,7 @@ export class PixiBattleRenderer {
     this.initialized = false;
     this.viewportHeight = -1;
     this.viewportWidth = -1;
+    this.frameMilliseconds = 1_000 / 60;
   }
 
   private assertCurrentGeneration(generation: number): void {
@@ -195,4 +241,5 @@ export class PixiBattleRenderer {
     this.viewportHeight = height;
     this.battleScene.resize(width, height);
   }
+
 }

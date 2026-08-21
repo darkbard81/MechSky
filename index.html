@@ -27,7 +27,7 @@
           <div id="game-surface"></div>
           <div id="boot-overlay" class="boot-overlay" aria-live="assertive">
             <div class="boot-card">
-              <p class="boot-kicker">M5 // BATTLE FLOW</p>
+              <p class="boot-kicker">M6 // REPLAY TOOLING</p>
               <div class="boot-title-row">
                 <h2>전투 자산 동기화</h2>
                 <strong id="loading-percent">0%</strong>
@@ -133,11 +133,11 @@
         </section>
 
         <aside class="architecture-panel">
-          <p class="panel-kicker">M5 // COMPLETE BATTLE</p>
-          <h2>반격하는 전투 흐름</h2>
+          <p class="panel-kicker">M6 // DETERMINISTIC REPLAY</p>
+          <h2>반복 가능한 전투 검증</h2>
           <p>
-            같은 CommandIntent를 쓰는 적 AI가 접근, 간격 유지, 공격과 회피를 수행합니다.
-            승패 후 한 번의 입력으로 모든 전투 상태를 초기화합니다.
+            BattleRecipe, seed, tick별 InputFrame으로 같은 전투를 재생하고 state hash를
+            비교합니다. dev URL과 debug API로 지정 장면을 즉시 확인할 수 있습니다.
           </p>
           <dl class="runtime-grid">
             <div>

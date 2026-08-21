@@ -16,16 +16,17 @@ Electron은 OS 셸과 제한된 IPC만 담당한다.
 3. [`assets/README.md`](assets/README.md) — asset pipeline 재현 명령과 QC 계약.
 4. [`README.md`](README.md) — 개발환경 사용법.
 
-현재 상태: **M0·M1·M2·M3·M4·M5 완료, M6 대기.**
+현재 상태: **M0·M1·M2·M3·M4·M5·M6 완료, M7 대기.**
 
 ## 명령어
 
 ```bash
 npm run dev            # Vite 개발 서버 (http://127.0.0.1:5173)
 npm run dev:electron   # Electron 셸과 함께 실행
-npm run check          # lint → typecheck → vitest. 매 변경마다 실행
+npm run check          # lint → typecheck → vitest → Playwright browser gate
 npm run build          # check + web build + electron build. milestone 종료마다 실행
 npm run demo:m1        # CDP 기반 M1 입력 재현 시나리오 (증거 캡처용)
+npm run demo:m6        # Playwright 기반 M6 dev URL/replay/screenshot gate
 npm run demo:m5        # CDP 기반 M5 승리/패배 full-run 재현
 ```
 

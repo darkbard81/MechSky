@@ -74,7 +74,7 @@ export class GameFlow {
       case "intro":
         return {
           phase: this.currentPhase,
-          kicker: "M5 // COMBAT START",
+          kicker: "M6 // REPLAY READY",
           title: "교전 준비",
           message: "적 기체가 접근과 반격을 시작합니다. 콤보를 연결해 먼저 격파하세요.",
           prompt: `${confirm} 전투 시작`,

@@ -105,5 +105,14 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-require-imports": "off"
     }
+  },
+  {
+    files: ["scripts/m6-browser-smoke.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
   }
 );

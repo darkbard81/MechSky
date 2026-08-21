@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1·M2·M3·M4·M5 완료, M6 대기
+> 상태: M0·M1·M2·M3·M4·M5·M6 완료, M7 대기
 
 ## 1. 목표
 
@@ -531,6 +531,22 @@ outline을 사용한다.
 - 동일 replay 2회 실행의 state hash 일치
 - 1280×800 기준 screenshot
 - `npm run check`에 replay/browser gate 연결
+
+완료 기록 (2026-08-21):
+
+- [`고정 replay, debug overlay, 1000-projectiles 화면과 browser 결과`](./evidence/m6/README.md)
+- versioned `BattleRecipe + seed + InputFrame[]` JSON 포맷, runtime validation,
+  canonical snapshot FNV-1a hash와 seeded AI replay runner 구현
+- 167 tick 고정 air-combo replay를 2회 실행해 initial/per-tick 168개 hash 전체와 최종
+  hash `ca05d879`가 일치하고, tick 91 visual hash `a395bcca`를 고정
+- `/dev/battle?scenario=vertical-slice|air-combo|1000-projectiles`를 메뉴 없이 시작하고,
+  air-combo 자동 playback과 정렬 없는 projectile layer의 1,000개 dev stress marker 구현
+- `window.__GAME_DEBUG__.load/step/dump/toggle`로 replay object 재로딩, 정확한 수동 60 Hz
+  step, snapshot/hash dump, world/ScreenDebug layer 제어 구현
+- Playwright browser gate를 `npm run check`에 연결해 1280×800 동일 replay PNG byte 일치,
+  dev URL 3종, DOM HUD layout 불변, console/page error와 실패 screenshot artifact를 검증
+- 23개 test file / 125개 unit test와 browser smoke gate 및 production build 통과
+- 사용자가 실제 실행 화면에서 M6 dev scenario와 debug/visual replay 결과를 확인하고 승인
 
 ### M7. 수직 슬라이스 승인 빌드
 

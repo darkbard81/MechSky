@@ -14,7 +14,12 @@ import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
 import { CameraShake } from "./camera/camera-shake";
 import { resolveBattleCameraTarget } from "./camera/battle-camera-target";
 import { SmoothCamera } from "./camera/smooth-camera";
-import { DebugOverlay, type DebugLayerName } from "./debug/debug-overlay";
+import {
+  DebugOverlay,
+  type DebugLayerName,
+  type DebugRuntimeMetrics,
+} from "./debug/debug-overlay";
+import { ProjectileStressView } from "./debug/projectile-stress-view";
 import { ImpactEffects } from "./effects/impact-effects";
 import type { StageLayers } from "./stage-layers";
 
@@ -54,8 +59,13 @@ function createUnitPanel(color: number, alpha: number): Graphics {
   return new Graphics().rect(0, 0, 1, 1).fill({ color, alpha });
 }
 
-function createArenaBoundary(centerX: number, centerY: number, radius: number): Graphics {
-  return new Graphics()
+function drawArenaBoundary(
+  graphics: Graphics,
+  centerX: number,
+  centerY: number,
+  radius: number,
+): Graphics {
+  return graphics
     .circle(centerX, centerY, radius)
     .fill({ color: 0x12343d, alpha: 0.12 })
     .stroke({ color: 0x69dce2, width: 4, alpha: 0.72 })
@@ -68,6 +78,10 @@ function createArenaBoundary(centerX: number, centerY: number, radius: number): 
     .moveTo(centerX, centerY - radius)
     .lineTo(centerX, centerY + radius)
     .stroke({ color: 0x76cbd0, width: 1, alpha: 0.1 });
+}
+
+function createArenaBoundary(centerX: number, centerY: number, radius: number): Graphics {
+  return drawArenaBoundary(new Graphics(), centerX, centerY, radius);
 }
 
 function createTargetGroundMarker(): Graphics {
@@ -118,13 +132,14 @@ export class BattleScene {
   private readonly targetReticle = createTargetReticle();
   private readonly impacts: ImpactEffects;
   private readonly debug: DebugOverlay;
+  private readonly projectileStress: ProjectileStressView;
   private readonly camera = new SmoothCamera(8);
   private readonly shake = new CameraShake();
-  private readonly arenaCenter: Readonly<{ x: number; y: number }>;
-  private readonly arenaRadius: number;
-  private readonly maximumCameraLookAhead: number;
-  private readonly playerId: number;
-  private readonly enemyId: number;
+  private arenaCenter: Readonly<{ x: number; y: number }>;
+  private arenaRadius: number;
+  private maximumCameraLookAhead: number;
+  private playerId: number;
+  private enemyId: number;
   private layout: BattleLayout = calculateBattleLayout(1, 1);
   private afterimageCursor = 0;
   private afterimageAccumulator = 0;
@@ -214,9 +229,14 @@ export class BattleScene {
         "Mech ground slam",
       ),
     });
-    this.debug = new DebugOverlay(layers.debug);
+    this.debug = new DebugOverlay(layers.debug, layers.screenDebug);
+    this.projectileStress = new ProjectileStressView(layers);
 
-    this.present(initialSnapshot, 0);
+    this.present(initialSnapshot, 0, {
+      framesPerSecond: 60,
+      frameMilliseconds: 1_000 / 60,
+      projectileCount: 0,
+    });
   }
 
   toggleDebugLayer(layer: DebugLayerName): boolean {
@@ -225,6 +245,34 @@ export class BattleScene {
 
   isDebugLayerEnabled(layer: DebugLayerName): boolean {
     return this.debug.isEnabled(layer);
+  }
+
+  enabledDebugLayers(): readonly DebugLayerName[] {
+    return this.debug.enabledLayers();
+  }
+
+  setDevelopmentProjectileCount(count: number): void {
+    this.projectileStress.setCount(count);
+  }
+
+  get developmentProjectileCount(): number {
+    return this.projectileStress.count;
+  }
+
+  load(snapshot: SimulationSnapshot): void {
+    this.arenaCenter = { ...snapshot.arena.center };
+    this.arenaRadius = snapshot.arena.radius;
+    this.maximumCameraLookAhead = snapshot.player.dashSpeed * 0.075;
+    this.playerId = snapshot.player.id;
+    this.enemyId = snapshot.enemy.id;
+    this.arenaBoundary.clear();
+    drawArenaBoundary(
+      this.arenaBoundary,
+      snapshot.arena.center.x,
+      snapshot.arena.center.y,
+      snapshot.arena.radius,
+    );
+    this.reset(snapshot);
   }
 
   reset(snapshot: SimulationSnapshot): void {
@@ -242,7 +290,11 @@ export class BattleScene {
     this.camera.reset(resolveBattleCameraTarget(snapshot));
     this.playerView.reset(snapshot.player, snapshot.tick);
     this.enemyView.reset(snapshot.enemy, snapshot.tick);
-    this.present(snapshot, 0);
+    this.present(snapshot, 0, {
+      framesPerSecond: 60,
+      frameMilliseconds: 1_000 / 60,
+      projectileCount: this.projectileStress.count,
+    });
   }
 
   /** Consumes simulation events. The scene never reads combat state directly. */
@@ -269,11 +321,16 @@ export class BattleScene {
     this.layout = calculateBattleLayout(width, height);
     this.background.scale.set(this.layout.width, this.layout.height);
     this.layers.world.scale.set(this.layout.actorScale);
+    this.debug.resize(width);
     this.resizeWorldFloor();
     this.applyCameraTransform();
   }
 
-  present(snapshot: SimulationSnapshot, deltaSeconds: number): void {
+  present(
+    snapshot: SimulationSnapshot,
+    deltaSeconds: number,
+    metrics: DebugRuntimeMetrics,
+  ): void {
     const safeDelta = Math.min(Math.max(deltaSeconds, 0), 0.05);
     const { player } = snapshot;
 
@@ -285,7 +342,11 @@ export class BattleScene {
 
     this.impacts.advance(safeDelta);
     this.shake.advance(safeDelta);
-    this.debug.present(snapshot);
+    this.projectileStress.present(snapshot);
+    this.debug.present(snapshot, {
+      ...metrics,
+      projectileCount: this.projectileStress.count,
+    });
 
     this.camera.follow(resolveBattleCameraTarget(snapshot), safeDelta);
     this.applyCameraTransform();

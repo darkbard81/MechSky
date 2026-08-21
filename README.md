@@ -72,16 +72,59 @@ npm run demo:m5
 pause/resume도 함께 검증한다. 상세 증거와 사용자 확인 항목은
 [`documents/evidence/m5/README.md`](documents/evidence/m5/README.md)에 있다.
 
+## M6 Replay와 dev scenario
+
+개발 서버에서는 메뉴 입력 없이 다음 장면을 바로 열 수 있다.
+
+```text
+http://127.0.0.1:5173/dev/battle?scenario=vertical-slice
+http://127.0.0.1:5173/dev/battle?scenario=air-combo
+http://127.0.0.1:5173/dev/battle?scenario=1000-projectiles
+```
+
+`air-combo`는 167 tick 고정 replay를 자동 재생한다. `1000-projectiles`는 projectile
+combat을 추가하는 장면이 아니라, snapshot tick에서 파생된 1,000개 dev stress marker를
+정렬 없는 projectile layer에 표시하는 renderer 부하 확인 장면이다.
+
+브라우저 DevTools에서는 `window.__GAME_DEBUG__`로 같은 replay를 수동 진행할 수 있다.
+
+```js
+window.__GAME_DEBUG__.load("air-combo");
+window.__GAME_DEBUG__.step(91);
+window.__GAME_DEBUG__.dump().stateHash; // a395bcca
+window.__GAME_DEBUG__.toggle("hitbox");
+window.__GAME_DEBUG__.toggle("combat");
+window.__GAME_DEBUG__.toggle("performance");
+```
+
+`dump().replay`는 JSON 호환 `BattleRecipe + seed + InputFrame[]`이며 다시 `load()`에
+전달할 수 있다. `step()`은 rAF와 무관하게 정확한 60 Hz tick만 진행한다.
+
+`npm run check`는 unit test 뒤 임시 Vite 서버와 Playwright Chromium을 실행해 세 URL,
+debug API, 동일 replay의 state hash와 1280×800 PNG byte 일치, HUD layout 불변을
+검증한다. Chromium이 아직 없으면 한 번 설치한다.
+
+```bash
+npx playwright install chromium
+npm run test:browser
+```
+
+기본 screenshot artifact는 `test-results/m6-browser/`에 남는다. milestone 증거와
+고정 hash는 [`documents/evidence/m6/README.md`](documents/evidence/m6/README.md)에
+정리되어 있다.
+
 ## 주요 구조
 
 ```text
 src/app/        애플리케이션 수명주기와 수동 frame loop
-src/sim/        renderer 및 플랫폼과 독립된 simulation
+src/sim/        renderer 및 플랫폼과 독립된 simulation/replay
 src/render/     PixiJS WebGL 표현 계층
 src/ui/         Vanilla DOM UI
 src/platform/   브라우저/Electron 어댑터
+src/testing/    dev battle scenario와 고정 replay
 electron/       main process와 sandbox preload
 tests/sim/      순수 simulation 테스트
+tests/replay/   replay format, hash, scenario 결정성 테스트
 public/assets/  PixiJS bundle manifest와 정적 에셋
 assets/         imagegen 원본과 asset pipeline QC 메타데이터
 ```

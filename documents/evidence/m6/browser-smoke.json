@@ -1,0 +1,73 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "verticalSlice": {
+    "scenario": "vertical-slice",
+    "mode": "live",
+    "replayFrame": 0,
+    "replayLength": 30,
+    "stateHash": "fda4afb0",
+    "tick": 30,
+    "playerAttack": null,
+    "playerElevation": 0,
+    "enemyHealth": 900,
+    "enemyElevation": 0,
+    "enabledDebugLayers": [],
+    "projectileCount": 0
+  },
+  "directAirCombo": {
+    "scenario": "air-combo",
+    "mode": "replay-auto",
+    "replayFrame": 25,
+    "replayLength": 167,
+    "stateHash": "84bac177",
+    "tick": 25,
+    "playerAttack": "mech-ground-2",
+    "playerElevation": 0,
+    "enemyHealth": 750,
+    "enemyElevation": 0,
+    "enabledDebugLayers": [],
+    "projectileCount": 0
+  },
+  "fixedReplay": {
+    "scenario": "standard",
+    "mode": "replay-manual",
+    "replayFrame": 91,
+    "replayLength": 167,
+    "stateHash": "a395bcca",
+    "tick": 91,
+    "playerAttack": "mech-finisher",
+    "playerElevation": 85.75481481481481,
+    "enemyHealth": 420,
+    "enemyElevation": 139,
+    "enabledDebugLayers": [
+      "collision",
+      "hitbox",
+      "combat"
+    ],
+    "projectileCount": 0
+  },
+  "repeatedHash": "a395bcca",
+  "projectileStress": {
+    "scenario": "1000-projectiles",
+    "mode": "live",
+    "replayFrame": 0,
+    "replayLength": 30,
+    "stateHash": "fda4afb0",
+    "tick": 30,
+    "playerAttack": null,
+    "playerElevation": 0,
+    "enemyHealth": 900,
+    "enemyElevation": 0,
+    "enabledDebugLayers": [],
+    "projectileCount": 1000
+  },
+  "screenshots": [
+    "visual-replay-1280x800.png",
+    "air-combo-fixed-1280x800.png",
+    "debug-overlays-1280x800.png",
+    "1000-projectiles-1280x800.png"
+  ]
+}

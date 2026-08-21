@@ -1,4 +1,5 @@
-import { Container, Graphics } from "pixi.js";
+import { BitmapText, Container, Graphics } from "pixi.js";
+import { hashSimulationSnapshot } from "../../sim/replay/battle-replay";
 import type { SimulationSnapshot } from "../../sim/world/world";
 
 export const DEBUG_TOGGLES = {
@@ -6,14 +7,54 @@ export const DEBUG_TOGGLES = {
   F2: "hitbox",
   F4: "velocity",
   F7: "combat",
+  F8: "performance",
 } as const;
 
 export type DebugLayerName = (typeof DEBUG_TOGGLES)[keyof typeof DEBUG_TOGGLES];
+
+const DEBUG_LAYER_ORDER: readonly DebugLayerName[] = Object.freeze([
+  "collision",
+  "hitbox",
+  "velocity",
+  "combat",
+  "performance",
+]);
+
+export interface DebugRuntimeMetrics {
+  readonly framesPerSecond: number;
+  readonly frameMilliseconds: number;
+  readonly projectileCount: number;
+}
 
 export function debugLayerForCode(code: string): DebugLayerName | null {
   return code in DEBUG_TOGGLES
     ? DEBUG_TOGGLES[code as keyof typeof DEBUG_TOGGLES]
     : null;
+}
+
+export function isDebugLayerName(value: unknown): value is DebugLayerName {
+  return (
+    typeof value === "string" &&
+    DEBUG_LAYER_ORDER.includes(value as DebugLayerName)
+  );
+}
+
+function createScreenPanel(width: number, height: number): Graphics {
+  return new Graphics()
+    .roundRect(0, 0, width, height, 5)
+    .fill({ color: 0x02090d, alpha: 0.9 })
+    .stroke({ color: 0x65d7dc, width: 1, alpha: 0.48 });
+}
+
+function createDebugText(color: number): BitmapText {
+  return new BitmapText({
+    text: "",
+    style: {
+      fontFamily: "monospace",
+      fontSize: 12,
+      fill: color,
+    },
+  });
 }
 
 /**
@@ -24,13 +65,33 @@ export class DebugOverlay {
   private readonly collision = new Graphics();
   private readonly hitbox = new Graphics();
   private readonly velocity = new Graphics();
+  private readonly combatPanel = createScreenPanel(310, 92);
+  private readonly combatText = createDebugText(0xb9fbfb);
+  private readonly performancePanel = createScreenPanel(244, 76);
+  private readonly performanceText = createDebugText(0xffdc89);
   private readonly enabled = new Set<DebugLayerName>();
+  private lastCombatText = "";
+  private lastPerformanceText = "";
 
-  constructor(worldLayer: Container) {
+  constructor(worldLayer: Container, screenLayer: Container) {
     this.collision.label = "Debug collision";
     this.hitbox.label = "Debug hitbox";
     this.velocity.label = "Debug velocity";
+    this.combatPanel.label = "Debug combat panel";
+    this.combatText.label = "Debug combat state";
+    this.performancePanel.label = "Debug performance panel";
+    this.performanceText.label = "Debug performance state";
+    this.combatPanel.position.set(12, 118);
+    this.combatText.position.set(22, 127);
+    this.performancePanel.position.set(12, 218);
+    this.performanceText.position.set(22, 227);
     worldLayer.addChild(this.collision, this.hitbox, this.velocity);
+    screenLayer.addChild(
+      this.combatPanel,
+      this.combatText,
+      this.performancePanel,
+      this.performanceText,
+    );
     this.applyVisibility();
   }
 
@@ -49,7 +110,20 @@ export class DebugOverlay {
     return this.enabled.has(layer);
   }
 
-  present(snapshot: SimulationSnapshot): void {
+  enabledLayers(): readonly DebugLayerName[] {
+    return DEBUG_LAYER_ORDER.filter((layer) => this.enabled.has(layer));
+  }
+
+  resize(width: number): void {
+    const performanceX = Math.max(12, width - 256);
+    this.performancePanel.x = performanceX;
+    this.performanceText.x = performanceX + 10;
+  }
+
+  present(
+    snapshot: SimulationSnapshot,
+    metrics: DebugRuntimeMetrics,
+  ): void {
     if (this.enabled.has("collision")) {
       this.drawCollision(snapshot);
     }
@@ -60,6 +134,14 @@ export class DebugOverlay {
 
     if (this.enabled.has("velocity")) {
       this.drawVelocity(snapshot);
+    }
+
+    if (this.enabled.has("combat")) {
+      this.presentCombat(snapshot);
+    }
+
+    if (this.enabled.has("performance")) {
+      this.presentPerformance(snapshot, metrics);
     }
   }
 
@@ -121,10 +203,47 @@ export class DebugOverlay {
     }
   }
 
+  private presentCombat(snapshot: SimulationSnapshot): void {
+    const playerAction = snapshot.player.attackId ?? snapshot.player.actionKind;
+    const enemyAction = snapshot.enemy.attackId ?? snapshot.enemy.actionKind;
+    const text = [
+      `TICK ${snapshot.tick}  HASH ${hashSimulationSnapshot(snapshot)}`,
+      `P ${snapshot.player.state}/${snapshot.player.locomotion}  ${playerAction} ${snapshot.player.actionFrame}`,
+      `E ${snapshot.enemy.state}/${snapshot.enemy.locomotion}  ${enemyAction} ${snapshot.enemy.actionFrame}`,
+      `HITSTOP ${snapshot.player.hitStopFrames}/${snapshot.enemy.hitStopFrames}  OUTCOME ${snapshot.battleOutcome}`,
+    ].join("\n");
+
+    if (text !== this.lastCombatText) {
+      this.lastCombatText = text;
+      this.combatText.text = text;
+    }
+  }
+
+  private presentPerformance(
+    snapshot: SimulationSnapshot,
+    metrics: DebugRuntimeMetrics,
+  ): void {
+    const text = [
+      `FPS ${metrics.framesPerSecond.toFixed(1)}`,
+      `FRAME ${metrics.frameMilliseconds.toFixed(2)} ms`,
+      `HITBOX ${snapshot.hitboxes.length}`,
+      `PROJECTILES ${metrics.projectileCount}`,
+    ].join("\n");
+
+    if (text !== this.lastPerformanceText) {
+      this.lastPerformanceText = text;
+      this.performanceText.text = text;
+    }
+  }
+
   private applyVisibility(): void {
     this.collision.visible = this.enabled.has("collision");
     this.hitbox.visible = this.enabled.has("hitbox");
     this.velocity.visible = this.enabled.has("velocity");
+    this.combatPanel.visible = this.enabled.has("combat");
+    this.combatText.visible = this.enabled.has("combat");
+    this.performancePanel.visible = this.enabled.has("performance");
+    this.performanceText.visible = this.enabled.has("performance");
 
     if (!this.collision.visible) {
       this.collision.clear();

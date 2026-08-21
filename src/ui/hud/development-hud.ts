@@ -75,7 +75,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "적의 접근과 반격을 읽고 지상 2타 → Launcher → Homing → 공중 2타 → Finisher를 연결합니다.";
+      "M6 replay와 dev scenario가 같은 전투 tick과 state hash를 반복 재현합니다.";
   }
 
   failed(message: string): void {
