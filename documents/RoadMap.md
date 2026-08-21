@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1·M2·M3·M4·M5·M6 완료, M7 대기
+> 상태: M0·M1·M2·M3·M4·M5·M6·M7 완료
 
 ## 1. 목표
 
@@ -572,6 +572,31 @@ outline을 사용한다.
 - 전투 중 반복되는 체감 GC spike가 없다.
 - browser와 Electron 결과가 기능적으로 동일하다.
 - `npm run check`와 `npm run build`가 통과한다.
+
+완료 기록 (2026-08-21):
+
+- [`Browser/Electron 후보 화면, 양 입력 콤보와 performance 결과`](./evidence/m7/README.md)
+- 1280×800에서 compact shell과 944×679 battle panel을 확보하고, 1920×1080에서는
+  1440×871 battle panel을 사용한다. 일반 route의 simulation/movement 개발 HUD는 숨기고
+  두 해상도에서 combat HUD, intro/result card, prompt의 무겹침을 좌표로 검증
+- focus loss 시 active battle을 자동 pause하고 held/queued input을 지우며, `Esc`/Menu의
+  명시 입력으로만 재개한다. Browser/Electron fullscreen 진입·복귀와 viewport 복원을 검증
+- `prefers-reduced-motion`에서 camera shake displacement를 20%로 낮추고 DOM transition도
+  사실상 제거하며 fullscreen button의 focus-visible/`aria-pressed` 상태를 연결
+- app 계층의 wall-clock observer가 AI, 전체 simulation, collision+hit timing을 상태와
+  분리해 집계하고 F8 overlay와 `__GAME_DEBUG__.dump().performance`에 평균/최대치를 노출
+- headed Browser 60.00 FPS와 spike 0회, Electron 59.00 FPS와 고립 spike 1회로 60 Hz
+  tolerance를 통과하고 반복 spike는 없음; simulation/collision+hit/AI 평균은 모든
+  budget의 3% 미만
+- 실제 keyboard/gamepad rising-edge 입력으로 전체 공중 콤보를 각각 실행하고, keyboard
+  표준 route는 반격 AI를 상대로 5.786초 안에 승리·1입력 retry까지 완료
+- production relative base용 `/?devScenario=...` 진입 경로와 기존 `/dev/battle` 경로를
+  함께 유지하고, Electron ESM main의 ready deadlock을 제거해 직접 package entry smoke 통과
+- particle 16개 pool, projectile stress Sprite 재사용, dash afterimage ring을 확인했으며,
+  낮은 cardinality의 immutable hitbox/damage event는 profiler 근거가 없어 추가 pool 보류
+- 24개 test file / 131개 unit test, M6 browser gate, production Browser/Electron release
+  gate와 web/Electron build를 포함한 M7 최종 `npm run build` 통과
+- 사용자가 Browser/Electron 후보 실행 화면을 직접 확인하고 Gate G 승인
 
 ## 8. 구현 파일 배치
 

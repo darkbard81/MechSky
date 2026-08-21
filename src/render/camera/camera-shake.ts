@@ -1,6 +1,11 @@
 import type { Vector2 } from "../../sim/math/vector2";
 
 const DECAY_PER_SECOND = 7.5;
+export const REDUCED_MOTION_SHAKE_SCALE = 0.2;
+
+export function cameraShakeMotionScale(reducedMotion: boolean): number {
+  return reducedMotion ? REDUCED_MOTION_SHAKE_SCALE : 1;
+}
 
 /**
  * Deterministic shake: the offset comes from elapsed time and the current

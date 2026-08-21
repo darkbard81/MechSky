@@ -42,6 +42,7 @@ import {
 } from "../ui/result/battle-flow-overlay";
 import { BattleSession } from "./battle-session";
 import { GameFlow } from "./game-flow";
+import { RuntimePerformanceMonitor } from "./runtime-performance";
 
 const MANUAL_STEP_SECONDS = 1 / SIMULATION_HZ;
 const MAX_MANUAL_STEP_FRAMES = 10_000;
@@ -60,6 +61,7 @@ export class GameApp {
     maxCatchUpSteps: 5,
   });
   private readonly renderer = new PixiBattleRenderer();
+  private readonly performance = new RuntimePerformanceMonitor();
   private readonly audio = new CombatAudio();
   private readonly input: PlayerInputController;
   private readonly hud: DevelopmentHud;
@@ -68,15 +70,20 @@ export class GameApp {
   private readonly flowOverlay: BattleFlowOverlay;
   private readonly platform: Platform;
   private readonly debugApi: GameDebugApi;
+  private readonly reducedMotionQuery = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  );
   private session: BattleSession;
   private activeReplay: BattleReplay | null;
   private replayFrame = 0;
   private manualReplay = false;
   private recordedInputFrames: InputFrame[] = [];
+  private readonly candidateUi: boolean;
   private currentScenario: DevBattleScenarioName | "standard";
   private projectileCount: number;
   private animationFrameId: number | undefined;
   private previousRenderTimeMilliseconds: number | undefined;
+  private fullscreenSyncGeneration = 0;
   private running = false;
 
   constructor(
@@ -84,8 +91,13 @@ export class GameApp {
     scenario: DevBattleScenario | null = null,
   ) {
     const recipe = scenario?.recipe ?? HANGAR_TEST_BATTLE;
-    this.session = new BattleSession(recipe, scenario?.replay?.seed ?? recipe.seed);
+    this.session = new BattleSession(
+      recipe,
+      scenario?.replay?.seed ?? recipe.seed,
+      this.performance,
+    );
     this.activeReplay = scenario?.replay ?? null;
+    this.candidateUi = scenario === null;
     this.currentScenario = scenario?.name ?? "standard";
     this.projectileCount = scenario?.projectileCount ?? 0;
     this.input = new PlayerInputController(recipe.player.id);
@@ -101,6 +113,17 @@ export class GameApp {
     });
     this.elements.fullscreenButton.addEventListener("click", this.handleFullscreen);
     window.addEventListener("keydown", this.handleDebugKey);
+    window.addEventListener("blur", this.handleFocusLoss);
+    window.addEventListener("resize", this.handleFullscreenEnvironmentChange);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    document.addEventListener(
+      "fullscreenchange",
+      this.handleFullscreenEnvironmentChange,
+    );
+    this.reducedMotionQuery.addEventListener(
+      "change",
+      this.handleReducedMotionChange,
+    );
   }
 
   async start(): Promise<void> {
@@ -118,6 +141,7 @@ export class GameApp {
           this.hud.loading(progress, detail);
         },
       );
+      this.renderer.setReducedMotion(this.reducedMotionQuery.matches);
       this.renderer.setDevelopmentProjectileCount(this.projectileCount);
       if (this.currentScenario !== "standard") {
         this.flow.restartBattle();
@@ -127,6 +151,7 @@ export class GameApp {
       this.clock.reset(performance.now());
       this.previousRenderTimeMilliseconds = undefined;
       this.hud.ready(this.platform.kind);
+      this.syncFullscreenState();
       window.__GAME_DEBUG__ = this.debugApi;
       const inputStatus = this.input.getStatus();
       this.presentDom(inputStatus, 0);
@@ -154,6 +179,17 @@ export class GameApp {
     }
     this.elements.fullscreenButton.removeEventListener("click", this.handleFullscreen);
     window.removeEventListener("keydown", this.handleDebugKey);
+    window.removeEventListener("blur", this.handleFocusLoss);
+    window.removeEventListener("resize", this.handleFullscreenEnvironmentChange);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    document.removeEventListener(
+      "fullscreenchange",
+      this.handleFullscreenEnvironmentChange,
+    );
+    this.reducedMotionQuery.removeEventListener(
+      "change",
+      this.handleReducedMotionChange,
+    );
     this.input.destroy();
     this.audio.destroy();
     this.renderer.destroy();
@@ -170,6 +206,7 @@ export class GameApp {
         ? 0
         : Math.max(0, nowMilliseconds - previousRenderTime) / 1_000;
     this.previousRenderTimeMilliseconds = nowMilliseconds;
+    this.performance.recordFrame(renderDeltaSeconds * 1_000);
 
     let inputStatus = this.input.getStatus();
     const advance = this.manualReplay
@@ -186,6 +223,7 @@ export class GameApp {
       this.session.frame,
       advance.alpha,
       this.manualReplay ? 0 : renderDeltaSeconds,
+      this.performance,
     );
     this.renderer.render();
     this.presentDom(inputStatus, advance.alpha);
@@ -205,6 +243,7 @@ export class GameApp {
     if (phaseBeforeInput !== "active" || this.flow.phase !== "active") {
       if (transition.battleStarted) {
         this.input.resetBattleInput();
+        this.performance.reset();
       }
       return;
     }
@@ -279,6 +318,7 @@ export class GameApp {
     this.elements.surface.dataset["flowPhase"] = this.flow.phase;
     this.elements.surface.dataset["enemyAi"] = this.session.enemyAiState;
     this.elements.surface.dataset["scenario"] = this.currentScenario;
+    this.elements.surface.dataset["candidateUi"] = this.candidateUi.toString();
     this.elements.surface.dataset["replayMode"] = this.debugMode();
     this.elements.surface.dataset["replayFrame"] = this.replayFrame.toString();
     this.elements.surface.dataset["replayLength"] =
@@ -287,6 +327,9 @@ export class GameApp {
     this.elements.surface.dataset["projectileCount"] = this.projectileCount.toString();
     this.elements.surface.dataset["debugLayers"] =
       this.renderer.enabledDebugLayers().join(",");
+    this.elements.surface.dataset["pauseReason"] = this.flow.pauseReason ?? "none";
+    this.elements.surface.dataset["reducedMotion"] =
+      this.reducedMotionQuery.matches.toString();
   }
 
   private readonly handleDebugKey = (event: KeyboardEvent): void => {
@@ -318,7 +361,7 @@ export class GameApp {
     void this.platform
       .toggleFullscreen()
       .then((enabled) => {
-        this.elements.fullscreenButton.textContent = enabled ? "창 모드" : "전체 화면";
+        this.applyFullscreenState(enabled);
       })
       .catch((error: unknown) => {
         this.hud.showMessage(
@@ -327,6 +370,54 @@ export class GameApp {
       });
   };
 
+  private readonly handleFullscreenEnvironmentChange = (): void => {
+    this.syncFullscreenState();
+  };
+
+  private readonly handleFocusLoss = (): void => {
+    if (!this.running || !this.flow.pauseForFocusLoss()) {
+      return;
+    }
+
+    this.input.resetBattleInput();
+    this.clock.reset(performance.now());
+    this.previousRenderTimeMilliseconds = undefined;
+    this.presentDom(this.input.getStatus(), 0);
+    this.hud.showMessage("창 포커스를 잃어 전투가 자동으로 일시 정지되었습니다.");
+  };
+
+  private readonly handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.handleFocusLoss();
+    }
+  };
+
+  private readonly handleReducedMotionChange = (
+    event: MediaQueryListEvent,
+  ): void => {
+    this.renderer.setReducedMotion(event.matches);
+    this.elements.surface.dataset["reducedMotion"] = event.matches.toString();
+  };
+
+  private syncFullscreenState(): void {
+    const generation = this.fullscreenSyncGeneration + 1;
+    this.fullscreenSyncGeneration = generation;
+    void this.platform
+      .isFullscreen()
+      .then((enabled) => {
+        if (generation === this.fullscreenSyncGeneration) {
+          this.applyFullscreenState(enabled);
+        }
+      })
+      .catch(() => undefined);
+  }
+
+  private applyFullscreenState(enabled: boolean): void {
+    this.elements.fullscreenButton.textContent = enabled ? "창 모드" : "전체 화면";
+    this.elements.fullscreenButton.setAttribute("aria-pressed", enabled.toString());
+    this.elements.surface.dataset["fullscreen"] = enabled.toString();
+  }
+
   private resetBattle(): void {
     this.session.reset();
     this.replayFrame = 0;
@@ -334,6 +425,7 @@ export class GameApp {
     this.input.resetBattleInput();
     this.flow.restartBattle();
     this.battleHud.reset();
+    this.performance.reset();
     this.renderer.reset(this.session.frame);
   }
 
@@ -342,7 +434,8 @@ export class GameApp {
     const replay = builtIn
       ? replayForDebugName("air-combo")
       : parseBattleReplay(value);
-    this.session = new BattleSession(replay.recipe, replay.seed);
+    this.performance.reset();
+    this.session = new BattleSession(replay.recipe, replay.seed, this.performance);
     this.activeReplay = replay;
     this.replayFrame = 0;
     this.manualReplay = true;
@@ -382,7 +475,12 @@ export class GameApp {
       this.session.step(inputFrame.intents);
       this.replayFrame += 1;
       this.renderer.consume(this.session.drainEvents());
-      this.renderer.present(this.session.frame, 1, MANUAL_STEP_SECONDS);
+      this.renderer.present(
+        this.session.frame,
+        1,
+        MANUAL_STEP_SECONDS,
+        this.performance,
+      );
       this.flow.observeOutcome(this.session.frame.current.battleOutcome);
     }
 
@@ -411,6 +509,9 @@ export class GameApp {
       replay,
       enabledDebugLayers: Object.freeze([...this.renderer.enabledDebugLayers()]),
       projectileCount: this.renderer.developmentProjectileCount,
+      performance: this.performance.snapshot(),
+      pauseReason: this.flow.pauseReason,
+      reducedMotion: this.reducedMotionQuery.matches,
     });
   }
 

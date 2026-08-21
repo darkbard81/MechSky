@@ -3,7 +3,11 @@ import "pixi.js/prepare";
 import { Application, Ticker, type Texture } from "pixi.js";
 import type { SimEvent } from "../sim/world/sim-event";
 import type { SimulationFrame } from "../sim/world/world";
-import type { DebugLayerName } from "./debug/debug-overlay";
+import type {
+  DebugLayerName,
+  DebugRuntimeMetrics,
+  DebugTimingMetrics,
+} from "./debug/debug-overlay";
 import { loadBattleAssets, type AssetLoadProgress } from "./assets/battle-assets";
 import { BattleScene } from "./battle-scene";
 import { interpolateSimulationFrame } from "./snapshot-interpolation";
@@ -57,6 +61,20 @@ export class PixiBattleRenderer {
   private viewportHeight = -1;
   private viewportWidth = -1;
   private frameMilliseconds = 1_000 / 60;
+  private readonly debugMetrics: {
+    -readonly [Key in keyof DebugRuntimeMetrics]: DebugRuntimeMetrics[Key];
+  } = {
+    framesPerSecond: 60,
+    frameMilliseconds: 1_000 / 60,
+    projectileCount: 0,
+    simulationAverageMilliseconds: 0,
+    simulationMaximumMilliseconds: 0,
+    collisionHitAverageMilliseconds: 0,
+    collisionHitMaximumMilliseconds: 0,
+    aiAverageMilliseconds: 0,
+    aiMaximumMilliseconds: 0,
+    frameSpikeCount: 0,
+  };
 
   async initialize(
     host: HTMLElement,
@@ -110,6 +128,7 @@ export class PixiBattleRenderer {
     frame: SimulationFrame,
     alpha: number,
     renderDeltaSeconds: number,
+    timing: DebugTimingMetrics,
   ): void {
     if (!this.initialized || this.layers === undefined || this.battleScene === undefined) {
       throw new Error("Pixi renderer must be initialized before presenting a frame.");
@@ -120,14 +139,25 @@ export class PixiBattleRenderer {
       const measuredMilliseconds = renderDeltaSeconds * 1_000;
       this.frameMilliseconds += (measuredMilliseconds - this.frameMilliseconds) * 0.12;
     }
+    this.debugMetrics.framesPerSecond =
+      this.frameMilliseconds > 0 ? 1_000 / this.frameMilliseconds : 0;
+    this.debugMetrics.frameMilliseconds = this.frameMilliseconds;
+    this.debugMetrics.projectileCount = this.battleScene.developmentProjectileCount;
+    this.debugMetrics.simulationAverageMilliseconds =
+      timing.simulationAverageMilliseconds;
+    this.debugMetrics.simulationMaximumMilliseconds =
+      timing.simulationMaximumMilliseconds;
+    this.debugMetrics.collisionHitAverageMilliseconds =
+      timing.collisionHitAverageMilliseconds;
+    this.debugMetrics.collisionHitMaximumMilliseconds =
+      timing.collisionHitMaximumMilliseconds;
+    this.debugMetrics.aiAverageMilliseconds = timing.aiAverageMilliseconds;
+    this.debugMetrics.aiMaximumMilliseconds = timing.aiMaximumMilliseconds;
+    this.debugMetrics.frameSpikeCount = timing.frameSpikeCount;
     this.battleScene.present(
       interpolateSimulationFrame(frame, alpha),
       renderDeltaSeconds,
-      {
-        framesPerSecond: this.frameMilliseconds > 0 ? 1_000 / this.frameMilliseconds : 0,
-        frameMilliseconds: this.frameMilliseconds,
-        projectileCount: this.battleScene.developmentProjectileCount,
-      },
+      this.debugMetrics,
     );
   }
 
@@ -189,6 +219,10 @@ export class PixiBattleRenderer {
 
   toggleDebugLayer(layer: DebugLayerName): boolean {
     return this.battleScene?.toggleDebugLayer(layer) ?? false;
+  }
+
+  setReducedMotion(enabled: boolean): void {
+    this.battleScene?.setReducedMotion(enabled);
   }
 
   destroy(): void {

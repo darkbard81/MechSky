@@ -1,4 +1,6 @@
 import type { DebugLayerName } from "../render/debug/debug-overlay";
+import type { GamePauseReason } from "../app/game-flow";
+import type { RuntimePerformanceSnapshot } from "../app/runtime-performance";
 import type { BattleReplay } from "../sim/replay/battle-replay";
 import type { SimulationSnapshot } from "../sim/world/world";
 import type { DevBattleScenarioName } from "./scenarios/dev-battle-scenarios";
@@ -13,6 +15,9 @@ export interface GameDebugDump {
   readonly replay: BattleReplay;
   readonly enabledDebugLayers: readonly DebugLayerName[];
   readonly projectileCount: number;
+  readonly performance: RuntimePerformanceSnapshot;
+  readonly pauseReason: GamePauseReason | null;
+  readonly reducedMotion: boolean;
 }
 
 export interface GameDebugApi {

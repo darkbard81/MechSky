@@ -20,7 +20,17 @@ const DEBUG_LAYER_ORDER: readonly DebugLayerName[] = Object.freeze([
   "performance",
 ]);
 
-export interface DebugRuntimeMetrics {
+export interface DebugTimingMetrics {
+  readonly simulationAverageMilliseconds: number;
+  readonly simulationMaximumMilliseconds: number;
+  readonly collisionHitAverageMilliseconds: number;
+  readonly collisionHitMaximumMilliseconds: number;
+  readonly aiAverageMilliseconds: number;
+  readonly aiMaximumMilliseconds: number;
+  readonly frameSpikeCount: number;
+}
+
+export interface DebugRuntimeMetrics extends DebugTimingMetrics {
   readonly framesPerSecond: number;
   readonly frameMilliseconds: number;
   readonly projectileCount: number;
@@ -67,7 +77,7 @@ export class DebugOverlay {
   private readonly velocity = new Graphics();
   private readonly combatPanel = createScreenPanel(310, 92);
   private readonly combatText = createDebugText(0xb9fbfb);
-  private readonly performancePanel = createScreenPanel(244, 76);
+  private readonly performancePanel = createScreenPanel(276, 118);
   private readonly performanceText = createDebugText(0xffdc89);
   private readonly enabled = new Set<DebugLayerName>();
   private lastCombatText = "";
@@ -115,7 +125,7 @@ export class DebugOverlay {
   }
 
   resize(width: number): void {
-    const performanceX = Math.max(12, width - 256);
+    const performanceX = Math.max(12, width - 288);
     this.performancePanel.x = performanceX;
     this.performanceText.x = performanceX + 10;
   }
@@ -224,10 +234,11 @@ export class DebugOverlay {
     metrics: DebugRuntimeMetrics,
   ): void {
     const text = [
-      `FPS ${metrics.framesPerSecond.toFixed(1)}`,
-      `FRAME ${metrics.frameMilliseconds.toFixed(2)} ms`,
-      `HITBOX ${snapshot.hitboxes.length}`,
-      `PROJECTILES ${metrics.projectileCount}`,
+      `FPS ${metrics.framesPerSecond.toFixed(1)}  FRAME ${metrics.frameMilliseconds.toFixed(2)} ms`,
+      `SIM ${metrics.simulationAverageMilliseconds.toFixed(3)} / ${metrics.simulationMaximumMilliseconds.toFixed(3)} ms`,
+      `HIT ${metrics.collisionHitAverageMilliseconds.toFixed(3)} / ${metrics.collisionHitMaximumMilliseconds.toFixed(3)} ms`,
+      `AI  ${metrics.aiAverageMilliseconds.toFixed(3)} / ${metrics.aiMaximumMilliseconds.toFixed(3)} ms`,
+      `SPIKE ${metrics.frameSpikeCount}  HITBOX ${snapshot.hitboxes.length}  P ${metrics.projectileCount}`,
     ].join("\n");
 
     if (text !== this.lastPerformanceText) {

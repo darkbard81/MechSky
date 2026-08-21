@@ -3,6 +3,10 @@ import type { Platform } from "./platform";
 export class BrowserPlatform implements Platform {
   readonly kind = "browser";
 
+  async isFullscreen(): Promise<boolean> {
+    return document.fullscreenElement !== null;
+  }
+
   async toggleFullscreen(): Promise<boolean> {
     if (document.fullscreenElement !== null) {
       await document.exitFullscreen();

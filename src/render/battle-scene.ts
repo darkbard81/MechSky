@@ -11,7 +11,10 @@ import {
 } from "./actors/fighter-view";
 import { createSheetTextures } from "./assets/sheet-textures";
 import { calculateBattleLayout, type BattleLayout } from "./battle-layout";
-import { CameraShake } from "./camera/camera-shake";
+import {
+  CameraShake,
+  cameraShakeMotionScale,
+} from "./camera/camera-shake";
 import { resolveBattleCameraTarget } from "./camera/battle-camera-target";
 import { SmoothCamera } from "./camera/smooth-camera";
 import {
@@ -144,6 +147,7 @@ export class BattleScene {
   private afterimageCursor = 0;
   private afterimageAccumulator = 0;
   private lastDashSequence = 0;
+  private reducedMotion = false;
 
   constructor(
     private readonly layers: StageLayers,
@@ -236,6 +240,13 @@ export class BattleScene {
       framesPerSecond: 60,
       frameMilliseconds: 1_000 / 60,
       projectileCount: 0,
+      simulationAverageMilliseconds: 0,
+      simulationMaximumMilliseconds: 0,
+      collisionHitAverageMilliseconds: 0,
+      collisionHitMaximumMilliseconds: 0,
+      aiAverageMilliseconds: 0,
+      aiMaximumMilliseconds: 0,
+      frameSpikeCount: 0,
     });
   }
 
@@ -257,6 +268,11 @@ export class BattleScene {
 
   get developmentProjectileCount(): number {
     return this.projectileStress.count;
+  }
+
+  setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled;
+    this.applyCameraTransform();
   }
 
   load(snapshot: SimulationSnapshot): void {
@@ -294,6 +310,13 @@ export class BattleScene {
       framesPerSecond: 60,
       frameMilliseconds: 1_000 / 60,
       projectileCount: this.projectileStress.count,
+      simulationAverageMilliseconds: 0,
+      simulationMaximumMilliseconds: 0,
+      collisionHitAverageMilliseconds: 0,
+      collisionHitMaximumMilliseconds: 0,
+      aiAverageMilliseconds: 0,
+      aiMaximumMilliseconds: 0,
+      frameSpikeCount: 0,
     });
   }
 
@@ -343,10 +366,7 @@ export class BattleScene {
     this.impacts.advance(safeDelta);
     this.shake.advance(safeDelta);
     this.projectileStress.present(snapshot);
-    this.debug.present(snapshot, {
-      ...metrics,
-      projectileCount: this.projectileStress.count,
-    });
+    this.debug.present(snapshot, metrics);
 
     this.camera.follow(resolveBattleCameraTarget(snapshot), safeDelta);
     this.applyCameraTransform();
@@ -433,10 +453,11 @@ export class BattleScene {
   private applyCameraTransform(): void {
     const camera = this.camera.position;
     const shake = this.shake.offset;
+    const shakeScale = cameraShakeMotionScale(this.reducedMotion);
     const scale = this.layout.actorScale;
     this.layers.world.position.set(
-      this.layout.cameraAnchorX - camera.x * scale + shake.x,
-      this.layout.cameraAnchorY - camera.y * scale + shake.y,
+      this.layout.cameraAnchorX - camera.x * scale + shake.x * shakeScale,
+      this.layout.cameraAnchorY - camera.y * scale + shake.y * shakeScale,
     );
   }
 

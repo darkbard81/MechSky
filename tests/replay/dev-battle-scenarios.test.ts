@@ -16,6 +16,7 @@ describe("M6 development battle scenarios", () => {
   it.each([
     ["vertical-slice", 0, false],
     ["air-combo", 0, true],
+    ["input-validation", 0, false],
     ["1000-projectiles", 1_000, false],
   ] as const)("resolves %s without menu setup", (name, projectileCount, replayed) => {
     const scenario = resolveDevBattleScenario(
@@ -35,5 +36,17 @@ describe("M6 development battle scenarios", () => {
       resolveDevBattleScenario(location("/dev/battle", "?scenario=unknown")),
     ).toThrow(/Unknown battle scenario/iu);
     expect(() => replayForDebugName("unknown")).toThrow(/air-combo/iu);
+  });
+
+  it("supports a root query route for relative-base production bundles", () => {
+    expect(
+      resolveDevBattleScenario(
+        location("/", "?devScenario=input-validation"),
+      )?.name,
+    ).toBe("input-validation");
+    expect(
+      resolveDevBattleScenario(location("/index.html", "?devScenario=air-combo"))
+        ?.name,
+    ).toBe("air-combo");
   });
 });

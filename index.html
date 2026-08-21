@@ -8,6 +8,7 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MechSky</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23050a0f'/%3E%3Cpath d='M7 24V8h4l5 7 5-7h4v16h-4v-9l-5 6-5-6v9z' fill='%2365d7dc'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
@@ -17,7 +18,12 @@
           <p class="eyebrow">2.5D COMBAT PROTOTYPE</p>
           <h1>MechSky</h1>
         </div>
-        <button id="fullscreen-button" class="utility-button" type="button">
+        <button
+          id="fullscreen-button"
+          class="utility-button"
+          type="button"
+          aria-pressed="false"
+        >
           전체 화면
         </button>
       </header>
@@ -27,7 +33,7 @@
           <div id="game-surface"></div>
           <div id="boot-overlay" class="boot-overlay" aria-live="assertive">
             <div class="boot-card">
-              <p class="boot-kicker">M6 // REPLAY TOOLING</p>
+              <p class="boot-kicker">M7 // RELEASE CANDIDATE</p>
               <div class="boot-title-row">
                 <h2>전투 자산 동기화</h2>
                 <strong id="loading-percent">0%</strong>
@@ -133,11 +139,11 @@
         </section>
 
         <aside class="architecture-panel">
-          <p class="panel-kicker">M6 // DETERMINISTIC REPLAY</p>
-          <h2>반복 가능한 전투 검증</h2>
+          <p class="panel-kicker">M7 // VERTICAL SLICE RC</p>
+          <h2>수직 슬라이스 후보 빌드</h2>
           <p>
-            BattleRecipe, seed, tick별 InputFrame으로 같은 전투를 재생하고 state hash를
-            비교합니다. dev URL과 debug API로 지정 장면을 즉시 확인할 수 있습니다.
+            키보드와 Steam Deck 입력으로 전투 진입부터 공중 콤보, 승패와 즉시 재시작까지
+            한 판을 진행할 수 있습니다.
           </p>
           <dl class="runtime-grid">
             <div>
@@ -150,7 +156,7 @@
             </div>
             <div>
               <dt>Reference</dt>
-              <dd>1024 × 768</dd>
+              <dd>1280×800 / 1920×1080</dd>
             </div>
             <div>
               <dt>Platform</dt>
@@ -158,6 +164,13 @@
             </div>
           </dl>
           <p id="runtime-message" class="runtime-message">전투 입력을 준비하고 있습니다.</p>
+          <section class="candidate-notes" aria-labelledby="candidate-notes-title">
+            <h3 id="candidate-notes-title">후보 빌드 범위</h3>
+            <p>
+              현재 후보는 arena 1개, 플레이어와 적 각 1기, 공중 콤보 1경로를 검증합니다.
+              세이브·장비 편집·스토리·배포 installer는 승인 이후 범위입니다.
+            </p>
+          </section>
         </aside>
       </main>
     </div>

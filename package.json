@@ -13,7 +13,7 @@
     "dev": "vite",
     "dev:electron": "npm run build:electron && concurrently -k -s first \"npm:dev\" \"npm:electron:launch\"",
     "electron:launch": "wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
-    "build": "npm run check && npm run build:web && npm run build:electron",
+    "build": "npm run check && npm run build:web && npm run build:electron && npm run test:release",
     "build:web": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "start": "electron .",
@@ -23,13 +23,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
     "test": "vitest run",
     "test:browser": "node scripts/m6-browser-smoke.mjs",
+    "test:release": "node scripts/m7-release-smoke.mjs",
     "test:watch": "vitest",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:browser",
     "demo:m2": "node scripts/m2-combat-demo.mjs",
     "demo:m3": "node scripts/m3-air-combo-demo.mjs",
     "demo:m4": "node scripts/m3-air-combo-demo.mjs",
     "demo:m5": "node scripts/m5-battle-demo.mjs",
-    "demo:m6": "node scripts/m6-browser-smoke.mjs"
+    "demo:m6": "node scripts/m6-browser-smoke.mjs",
+    "demo:m7": "npm run build:web && npm run build:electron && cross-env MECHSKY_M7_ARTIFACT_DIR=documents/evidence/m7 MECHSKY_M7_HEADED=1 node scripts/m7-release-smoke.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.19.0"

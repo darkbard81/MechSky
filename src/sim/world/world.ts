@@ -98,6 +98,11 @@ export interface SimulationFrame {
   readonly current: SimulationSnapshot;
 }
 
+export interface SimulationStepObserver {
+  beforeCollisionHit(): void;
+  afterCollisionHit(): void;
+}
+
 interface TickCommands {
   readonly attackSlot: number | null;
   readonly dashRequested: boolean;
@@ -410,7 +415,10 @@ export class SimulationWorld {
     this.previousSnapshot = this.createSnapshot(0);
   }
 
-  step(intents: readonly CommandIntent[] = []): void {
+  step(
+    intents: readonly CommandIntent[] = [],
+    observer?: SimulationStepObserver,
+  ): void {
     if (this.battleOutcome !== "ongoing") {
       return;
     }
@@ -434,7 +442,9 @@ export class SimulationWorld {
     this.updateMovement(this.player, this.enemy, playerCommands, tick);
     this.updateMovement(this.enemy, this.player, enemyCommands, tick);
     this.moveFighters();
+    observer?.beforeCollisionHit();
     this.resolveHits();
+    observer?.afterCollisionHit();
     this.advanceActions();
     this.updateCombo(this.player);
     this.updateCombo(this.enemy);

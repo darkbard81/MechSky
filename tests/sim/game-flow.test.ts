@@ -46,4 +46,19 @@ describe("GameFlow", () => {
     expect(flow.presentation("keyboard").prompt).toContain("Enter / Z");
     expect(flow.presentation("keyboard").prompt).not.toContain("J");
   });
+
+  it("pauses active combat on focus loss and requires an explicit resume input", () => {
+    const flow = new GameFlow();
+    flow.handleInput({ confirm: true, pause: false });
+
+    expect(flow.pauseForFocusLoss()).toBe(true);
+    expect(flow.phase).toBe("paused");
+    expect(flow.pauseReason).toBe("focus-loss");
+    expect(flow.presentation("keyboard").kicker).toContain("FOCUS LOST");
+    expect(flow.pauseForFocusLoss()).toBe(false);
+
+    flow.handleInput({ confirm: false, pause: true });
+    expect(flow.phase).toBe("active");
+    expect(flow.pauseReason).toBeNull();
+  });
 });

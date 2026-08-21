@@ -86,6 +86,7 @@ button {
   border-color: #65d7dc;
   outline: none;
   background: rgb(17 71 79 / 82%);
+  box-shadow: 0 0 0 3px rgb(101 215 220 / 20%);
 }
 
 .workspace {
@@ -600,6 +601,83 @@ kbd {
   line-height: 1.5;
 }
 
+.candidate-notes {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgb(139 205 214 / 13%);
+  padding-top: 1rem;
+}
+
+.candidate-notes h3,
+.candidate-notes p {
+  margin: 0;
+}
+
+.candidate-notes h3 {
+  color: #bde6e7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  font-weight: 560;
+  letter-spacing: 0.1em;
+}
+
+.candidate-notes p {
+  margin-top: 0.55rem;
+  color: #718f96;
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+#game-surface[data-candidate-ui="true"] ~ .simulation-hud,
+#game-surface[data-candidate-ui="true"] ~ .movement-hud {
+  display: none;
+}
+
+@media (max-width: 1400px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 18rem);
+  }
+
+  .architecture-panel {
+    padding: 1.35rem;
+  }
+}
+
+@media (max-height: 850px) and (min-width: 801px) {
+  #app-shell {
+    padding: 1rem;
+  }
+
+  .app-header {
+    padding-bottom: 0.7rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.9rem;
+  }
+
+  .workspace {
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .architecture-panel {
+    padding: 1.15rem;
+  }
+
+  .runtime-grid {
+    margin-top: 1rem;
+  }
+
+  .runtime-grid div {
+    padding: 0.65rem 0;
+  }
+
+  .candidate-notes {
+    margin-top: 0.9rem;
+    padding-top: 0.8rem;
+  }
+}
+
 @media (max-width: 1100px) {
   #app-shell {
     padding: 1rem;
@@ -661,5 +739,6 @@ kbd {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

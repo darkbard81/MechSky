@@ -75,7 +75,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "M6 replay와 dev scenario가 같은 전투 tick과 state hash를 반복 재현합니다.";
+      "M7 후보 빌드가 focus pause, timing budget, reduced motion과 양 플랫폼 경로를 검증합니다.";
   }
 
   failed(message: string): void {

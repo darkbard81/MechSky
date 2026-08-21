@@ -25,7 +25,8 @@ Electron 셸과 함께 실행하려면:
 npm run dev:electron
 ```
 
-Electron의 초기 content viewport는 `1024×768`이다. 첫 화면은
+Electron의 초기 content viewport 요청값은 `1280×800`이다. window manager의 work area가
+우선할 수 있으며, 첫 화면은
 `battle-common` PixiJS bundle을 로드하고 texture를 GPU에 prewarm한 뒤 표시한다.
 
 ## 검증
@@ -112,6 +113,34 @@ npm run test:browser
 기본 screenshot artifact는 `test-results/m6-browser/`에 남는다. milestone 증거와
 고정 hash는 [`documents/evidence/m6/README.md`](documents/evidence/m6/README.md)에
 정리되어 있다.
+
+## M7 후보 빌드
+
+일반 사용자 route는 1280×800과 1920×1080에서 개발용 simulation/movement HUD를 숨기고
+전투 HUD, 조작 안내, intro/pause/result만 표시한다. focus를 잃으면 전투가 자동 pause되며
+창으로 돌아온 뒤 `Esc` 또는 Gamepad `Menu`로 명시적으로 재개한다. 전체 화면 button은
+Browser Fullscreen API 또는 제한된 Electron IPC만 사용한다.
+
+production 후보를 두 플랫폼에서 직접 실행하려면:
+
+```bash
+npm run build
+npm run preview  # Browser production preview
+npm start        # Electron production file:// shell
+```
+
+`npm run build`는 기존 unit/M6 browser gate 뒤 production Browser와 실제 Electron package
+entry를 검사한다. headed 화면, keyboard/gamepad 전체 공중 콤보, 두 해상도 layout,
+focus/fullscreen/reduced-motion과 timing evidence를 다시 만들려면:
+
+```bash
+npm run demo:m7
+```
+
+production relative asset base에서는 `/?devScenario=air-combo`처럼 root query를 사용한다.
+개발 서버의 기존 `/dev/battle?scenario=air-combo` 경로도 유지된다. 상세 수치, object pool
+감사와 알려진 제한은
+[`documents/evidence/m7/README.md`](documents/evidence/m7/README.md)에 있다.
 
 ## 주요 구조
 

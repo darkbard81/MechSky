@@ -9,8 +9,8 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1024,
-    height: 768,
+    width: 1280,
+    height: 800,
     minWidth: 960,
     minHeight: 600,
     useContentSize: true,
@@ -31,6 +31,11 @@ function createWindow(): BrowserWindow {
   window.webContents.on("will-navigate", (event) => {
     event.preventDefault();
   });
+  window.on("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
 
   if (developmentServerUrl === undefined) {
     void window.loadFile(join(projectRoot, "dist", "index.html"));
@@ -41,21 +46,39 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
-ipcMain.handle("window:toggle-fullscreen", (event): boolean => {
-  if (mainWindow === null || event.sender.id !== mainWindow.webContents.id) {
-    throw new Error("Rejected fullscreen request from an unknown renderer.");
+function requireTrustedWindow(senderId: number): BrowserWindow {
+  if (mainWindow === null || senderId !== mainWindow.webContents.id) {
+    throw new Error("Rejected window request from an unknown renderer.");
   }
 
-  const fullscreen = !mainWindow.isFullScreen();
-  mainWindow.setFullScreen(fullscreen);
+  return mainWindow;
+}
+
+ipcMain.handle("window:get-fullscreen", (event): boolean =>
+  requireTrustedWindow(event.sender.id).isFullScreen(),
+);
+
+ipcMain.handle("window:toggle-fullscreen", (event): boolean => {
+  const window = requireTrustedWindow(event.sender.id);
+  const fullscreen = !window.isFullScreen();
+  window.setFullScreen(fullscreen);
   return fullscreen;
 });
 
-await app.whenReady();
-session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-  callback(false);
-});
-mainWindow = createWindow();
+void app
+  .whenReady()
+  .then(() => {
+    session.defaultSession.setPermissionRequestHandler(
+      (_webContents, _permission, callback) => {
+        callback(false);
+      },
+    );
+    mainWindow = createWindow();
+  })
+  .catch((error: unknown) => {
+    console.error("Electron initialization failed.", error);
+    app.exit(1);
+  });
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {

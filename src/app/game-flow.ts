@@ -2,6 +2,7 @@ import type { FlowInput, InputSource } from "../input/player-input";
 import type { BattleOutcome } from "../sim/world/world";
 
 export type GameFlowPhase = "intro" | "active" | "paused" | "victory" | "defeat";
+export type GamePauseReason = "manual" | "focus-loss";
 
 export interface GameFlowTransition {
   readonly battleStarted: boolean;
@@ -23,9 +24,14 @@ export interface GameFlowPresentation {
 
 export class GameFlow {
   private currentPhase: GameFlowPhase = "intro";
+  private currentPauseReason: GamePauseReason | null = null;
 
   get phase(): GameFlowPhase {
     return this.currentPhase;
+  }
+
+  get pauseReason(): GamePauseReason | null {
+    return this.currentPauseReason;
   }
 
   handleInput(input: FlowInput): GameFlowTransition {
@@ -36,11 +42,13 @@ export class GameFlow {
 
     if (this.currentPhase === "active" && input.pause) {
       this.currentPhase = "paused";
+      this.currentPauseReason = "manual";
       return NO_TRANSITION;
     }
 
     if (this.currentPhase === "paused" && input.pause) {
       this.currentPhase = "active";
+      this.currentPauseReason = null;
       return NO_TRANSITION;
     }
 
@@ -62,8 +70,19 @@ export class GameFlow {
     this.currentPhase = outcome;
   }
 
+  pauseForFocusLoss(): boolean {
+    if (this.currentPhase !== "active") {
+      return false;
+    }
+
+    this.currentPhase = "paused";
+    this.currentPauseReason = "focus-loss";
+    return true;
+  }
+
   restartBattle(): void {
     this.currentPhase = "active";
+    this.currentPauseReason = null;
   }
 
   presentation(source: InputSource): GameFlowPresentation {
@@ -74,7 +93,7 @@ export class GameFlow {
       case "intro":
         return {
           phase: this.currentPhase,
-          kicker: "M6 // REPLAY READY",
+          kicker: "M7 // RELEASE CANDIDATE",
           title: "교전 준비",
           message: "적 기체가 접근과 반격을 시작합니다. 콤보를 연결해 먼저 격파하세요.",
           prompt: `${confirm} 전투 시작`,
@@ -82,9 +101,15 @@ export class GameFlow {
       case "paused":
         return {
           phase: this.currentPhase,
-          kicker: "BATTLE PAUSED",
+          kicker:
+            this.currentPauseReason === "focus-loss"
+              ? "FOCUS LOST // AUTO PAUSE"
+              : "BATTLE PAUSED",
           title: "일시 정지",
-          message: "simulation과 전투 입력이 멈췄습니다.",
+          message:
+            this.currentPauseReason === "focus-loss"
+              ? "창 포커스를 잃어 simulation과 입력을 안전하게 멈췄습니다."
+              : "simulation과 전투 입력이 멈췄습니다.",
           prompt: `${pause} 계속`,
         };
       case "victory":

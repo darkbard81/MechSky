@@ -1,0 +1,245 @@
+{
+  "build": "production",
+  "browserMode": "headed",
+  "browser": {
+    "steamDeckLayout": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "scrollWidth": 1280,
+      "battle": {
+        "x": 16,
+        "y": 104.78125,
+        "width": 944,
+        "height": 679.21875,
+        "right": 960,
+        "bottom": 784,
+        "display": "block"
+      },
+      "architecture": {
+        "x": 976,
+        "y": 104.78125,
+        "width": 288,
+        "height": 679.21875,
+        "right": 1264,
+        "bottom": 784,
+        "display": "block"
+      },
+      "combatHud": {
+        "x": 33,
+        "y": 121.78125,
+        "width": 910,
+        "height": 69.984375,
+        "right": 943,
+        "bottom": 191.765625,
+        "display": "grid"
+      },
+      "flowCard": {
+        "x": 256,
+        "y": 334.171875,
+        "width": 464,
+        "height": 220.4375,
+        "right": 720,
+        "bottom": 554.609375,
+        "display": "block"
+      },
+      "flowPrompt": {
+        "x": 408.109375,
+        "y": 495.609375,
+        "width": 159.765625,
+        "height": 34,
+        "right": 567.875,
+        "bottom": 529.609375,
+        "display": "inline-block"
+      },
+      "simulationHud": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "right": 0,
+        "bottom": 0,
+        "display": "none"
+      },
+      "movementHud": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "right": 0,
+        "bottom": 0,
+        "display": "none"
+      }
+    },
+    "desktopLayout": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "scrollWidth": 1920,
+      "battle": {
+        "x": 40,
+        "y": 168.59375,
+        "width": 1440,
+        "height": 871.40625,
+        "right": 1480,
+        "bottom": 1040,
+        "display": "block"
+      },
+      "architecture": {
+        "x": 1512,
+        "y": 168.59375,
+        "width": 368,
+        "height": 871.40625,
+        "right": 1880,
+        "bottom": 1040,
+        "display": "block"
+      },
+      "combatHud": {
+        "x": 57,
+        "y": 185.59375,
+        "width": 1406,
+        "height": 69.984375,
+        "right": 1463,
+        "bottom": 255.578125,
+        "display": "grid"
+      },
+      "flowCard": {
+        "x": 528,
+        "y": 494.078125,
+        "width": 464,
+        "height": 220.4375,
+        "right": 992,
+        "bottom": 714.515625,
+        "display": "block"
+      },
+      "flowPrompt": {
+        "x": 680.109375,
+        "y": 655.515625,
+        "width": 159.765625,
+        "height": 34,
+        "right": 839.875,
+        "bottom": 689.515625,
+        "display": "inline-block"
+      },
+      "simulationHud": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "right": 0,
+        "bottom": 0,
+        "display": "none"
+      },
+      "movementHud": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "right": 0,
+        "bottom": 0,
+        "display": "none"
+      }
+    },
+    "focusLoss": {
+      "pausedTick": 3,
+      "resumedTick": 5
+    },
+    "performance": {
+      "simulation": {
+        "averageMilliseconds": 0.07053941512998209,
+        "maximumMilliseconds": 1.2999999523162842,
+        "samples": 241
+      },
+      "collisionHit": {
+        "averageMilliseconds": 0.01037344299411378,
+        "maximumMilliseconds": 0.5999999046325684,
+        "samples": 241
+      },
+      "ai": {
+        "averageMilliseconds": 0.011203320689221141,
+        "maximumMilliseconds": 0.2999999523162842,
+        "samples": 241
+      },
+      "frame": {
+        "averageMilliseconds": 16.666666666666668,
+        "maximumMilliseconds": 16.800000000000182,
+        "samples": 240,
+        "framesPerSecond": 59.99999999999999,
+        "spikeCount": 0
+      },
+      "budgets": {
+        "simulationAverageMilliseconds": 3,
+        "collisionHitAverageMilliseconds": 1.5,
+        "aiAverageMilliseconds": 1,
+        "minimumFramesPerSecond": 60,
+        "frameSpikeMilliseconds": 34
+      }
+    },
+    "browserFrameRateQualified": true,
+    "keyboardMatch": {
+      "scenario": "standard",
+      "durationMilliseconds": 5785.521403999999,
+      "finalTick": 348
+    },
+    "gamepadCombo": {
+      "enemyHealth": 420,
+      "tick": 121
+    },
+    "replayStateHash": "a395bcca"
+  },
+  "electron": {
+    "url": "file:///home/deck/Documents/MechSky/dist/index.html",
+    "platform": "Electron",
+    "initialViewport": {
+      "width": 1920,
+      "height": 1048
+    },
+    "restoredViewport": {
+      "width": 1920,
+      "height": 1048
+    },
+    "replayStateHash": "a395bcca",
+    "performance": {
+      "simulation": {
+        "averageMilliseconds": 0.0593360993872045,
+        "maximumMilliseconds": 1.5,
+        "samples": 241
+      },
+      "collisionHit": {
+        "averageMilliseconds": 0.011618256074264336,
+        "maximumMilliseconds": 0.5,
+        "samples": 241
+      },
+      "ai": {
+        "averageMilliseconds": 0.005809129026420878,
+        "maximumMilliseconds": 0.3000001907348633,
+        "samples": 241
+      },
+      "frame": {
+        "averageMilliseconds": 16.949152542372882,
+        "maximumMilliseconds": 83.20000000000005,
+        "samples": 236,
+        "framesPerSecond": 58.99999999999999,
+        "spikeCount": 1
+      },
+      "budgets": {
+        "simulationAverageMilliseconds": 3,
+        "collisionHitAverageMilliseconds": 1.5,
+        "aiAverageMilliseconds": 1,
+        "minimumFramesPerSecond": 60,
+        "frameSpikeMilliseconds": 34
+      }
+    }
+  },
+  "screenshots": [
+    "browser-1280x800-intro.png",
+    "browser-1920x1080-intro.png",
+    "browser-reduced-motion-1280x800.png",
+    "keyboard-core-combo-1280x800.png",
+    "keyboard-victory-1280x800.png",
+    "gamepad-core-combo-1280x800.png",
+    "electron-production.png"
+  ]
+}

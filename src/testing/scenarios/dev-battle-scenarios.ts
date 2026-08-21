@@ -1,11 +1,15 @@
 import { HANGAR_TEST_BATTLE } from "../../content/arenas/hangar-test";
 import type { BattleReplay } from "../../sim/replay/battle-replay";
 import type { BattleRecipe } from "../../sim/world/battle-recipe";
-import { AIR_COMBO_REPLAY } from "../replays/air-combo-replay";
+import {
+  AIR_COMBO_REPLAY,
+  AIR_COMBO_REPLAY_RECIPE,
+} from "../replays/air-combo-replay";
 
 export type DevBattleScenarioName =
   | "vertical-slice"
   | "air-combo"
+  | "input-validation"
   | "1000-projectiles";
 
 export interface DevBattleScenario {
@@ -29,6 +33,13 @@ const AIR_COMBO_SCENARIO: DevBattleScenario = Object.freeze({
   projectileCount: 0,
 });
 
+const INPUT_VALIDATION_SCENARIO: DevBattleScenario = Object.freeze({
+  name: "input-validation",
+  recipe: AIR_COMBO_REPLAY_RECIPE,
+  replay: null,
+  projectileCount: 0,
+});
+
 const PROJECTILE_STRESS_SCENARIO: DevBattleScenario = Object.freeze({
   name: "1000-projectiles",
   recipe: HANGAR_TEST_BATTLE,
@@ -40,6 +51,7 @@ const SCENARIOS: Readonly<Record<DevBattleScenarioName, DevBattleScenario>> =
   Object.freeze({
     "vertical-slice": VERTICAL_SLICE_SCENARIO,
     "air-combo": AIR_COMBO_SCENARIO,
+    "input-validation": INPUT_VALIDATION_SCENARIO,
     "1000-projectiles": PROJECTILE_STRESS_SCENARIO,
   });
 
@@ -51,15 +63,18 @@ export function resolveDevBattleScenario(
   location: Pick<Location, "pathname" | "search">,
 ): DevBattleScenario | null {
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
-  if (pathname !== "/dev/battle") {
+  const parameters = new URLSearchParams(location.search);
+  const rootScenario = parameters.get("devScenario");
+  if (pathname !== "/dev/battle" && rootScenario === null) {
     return null;
   }
 
-  const requested = new URLSearchParams(location.search).get("scenario");
+  const requested =
+    pathname === "/dev/battle" ? parameters.get("scenario") : rootScenario;
   const name = requested ?? "vertical-slice";
   if (!isDevBattleScenarioName(name)) {
     throw new RangeError(
-      `Unknown battle scenario '${name}'. Expected vertical-slice, air-combo, or 1000-projectiles.`,
+      `Unknown battle scenario '${name}'. Expected vertical-slice, air-combo, input-validation, or 1000-projectiles.`,
     );
   }
 
