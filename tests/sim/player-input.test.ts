@@ -8,9 +8,9 @@ import {
 } from "../../src/input/player-input";
 
 describe("player input mapping", () => {
-  it("maps J and K to primary and launcher or finisher slots", () => {
-    expect(attackSlotForCode("KeyJ")).toBe(0);
-    expect(attackSlotForCode("KeyK")).toBe(1);
+  it("maps Z and X to primary and launcher or finisher slots", () => {
+    expect(attackSlotForCode("KeyZ")).toBe(0);
+    expect(attackSlotForCode("KeyX")).toBe(1);
     expect(attackSlotForCode("KeyL")).toBeNull();
   });
 
@@ -52,6 +52,80 @@ describe("player input mapping", () => {
     pressed = true;
     expect(controller.sampleIntents()).toContainEqual(
       expect.objectContaining({ type: "attack", slot: 1 }),
+    );
+    controller.destroy();
+  });
+
+  it("maps gamepad A and Menu to mouse-free flow actions", () => {
+    const eventWindow = new EventTarget() as Window;
+    const eventDocument = new EventTarget() as Document;
+    const gamepad = {
+      axes: [0, 0],
+      buttons: Array.from({ length: 10 }, (_, index) => ({
+        pressed: index === 0 || index === 9,
+      })) as unknown as readonly GamepadButton[],
+      connected: true,
+    } as unknown as Gamepad;
+    const controller = new PlayerInputController(
+      1,
+      eventWindow,
+      eventDocument,
+      () => [gamepad],
+    );
+
+    const frame = controller.sampleFrame();
+    expect(frame.flow).toEqual({ confirm: true, pause: true });
+    expect(frame.intents).toContainEqual({ type: "attack", fighterId: 1, slot: 0 });
+    expect(controller.sampleFrame().flow).toEqual({ confirm: false, pause: false });
+    controller.destroy();
+  });
+
+  it("selects gamepad guidance as soon as a connected pad is detected", () => {
+    const eventWindow = new EventTarget() as Window;
+    const eventDocument = new EventTarget() as Document;
+    const gamepad = {
+      axes: [0, 0],
+      buttons: [],
+      connected: true,
+    } as unknown as Gamepad;
+    const controller = new PlayerInputController(
+      1,
+      eventWindow,
+      eventDocument,
+      () => [gamepad],
+    );
+
+    controller.sampleFrame();
+    expect(controller.getStatus()).toEqual({
+      source: "gamepad",
+      control: "LEFT STICK",
+    });
+    controller.destroy();
+  });
+
+  it("clears queued keyboard actions from a battle reset", () => {
+    const eventWindow = new EventTarget() as Window;
+    const eventDocument = new EventTarget() as Document;
+    const controller = new PlayerInputController(
+      1,
+      eventWindow,
+      eventDocument,
+      () => [],
+    );
+    const keydown = new Event("keydown") as KeyboardEvent;
+    Object.defineProperties(keydown, {
+      code: { value: "KeyZ" },
+      key: { value: "z" },
+      location: { value: 0 },
+      repeat: { value: false },
+    });
+    eventWindow.dispatchEvent(keydown);
+    controller.resetBattleInput();
+
+    const frame = controller.sampleFrame();
+    expect(frame.flow.confirm).toBe(false);
+    expect(frame.intents).not.toContainEqual(
+      expect.objectContaining({ type: "attack" }),
     );
     controller.destroy();
   });

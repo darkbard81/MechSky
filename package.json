@@ -26,7 +26,8 @@
     "check": "npm run lint && npm run typecheck && npm test",
     "demo:m2": "node scripts/m2-combat-demo.mjs",
     "demo:m3": "node scripts/m3-air-combo-demo.mjs",
-    "demo:m4": "node scripts/m3-air-combo-demo.mjs"
+    "demo:m4": "node scripts/m3-air-combo-demo.mjs",
+    "demo:m5": "node scripts/m5-battle-demo.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.19.0"

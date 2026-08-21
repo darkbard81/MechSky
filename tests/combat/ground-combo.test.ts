@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID, TRAINING_TARGET_ID } from "../../src/content/arenas/hangar-test";
+import { ENEMY_FIGHTER_ID, HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID } from "../../src/content/arenas/hangar-test";
 import type { CommandIntent } from "../../src/sim/input/command-intent";
 import type { BattleRecipe } from "../../src/sim/world/battle-recipe";
 import type { HitLandedEvent, SimEvent } from "../../src/sim/world/sim-event";
@@ -226,7 +226,7 @@ describe("ground combo", () => {
     runTicks(world, 1, () => [ATTACK]);
 
     const { player } = world.getFrame().current;
-    expect(player.lockedTargetId).toBe(TRAINING_TARGET_ID);
+    expect(player.lockedTargetId).toBe(ENEMY_FIGHTER_ID);
     expect(player.facing.y).toBeCloseTo(1, 5);
     expect(player.facing.x).toBeCloseTo(0, 5);
   });

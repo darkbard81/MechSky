@@ -1,4 +1,5 @@
 import type { AttackLibrary } from "../../sim/combat/attack-definition";
+import { ENEMY_MECH_STRIKE_CHAIN } from "./enemy-mech-strike";
 import { MECH_AIR_1, MECH_AIR_2, MECH_AIR_COMBO } from "./mech-air-combo";
 import { MECH_FINISHER, MECH_FINISHER_CHAIN } from "./mech-finisher";
 import {
@@ -22,5 +23,6 @@ export const MECH_ATTACK_LIBRARY = {
     [MECH_LAUNCHER_CHAIN.id]: MECH_LAUNCHER_CHAIN,
     [MECH_AIR_COMBO.id]: MECH_AIR_COMBO,
     [MECH_FINISHER_CHAIN.id]: MECH_FINISHER_CHAIN,
+    [ENEMY_MECH_STRIKE_CHAIN.id]: ENEMY_MECH_STRIKE_CHAIN,
   },
 } as const satisfies AttackLibrary;

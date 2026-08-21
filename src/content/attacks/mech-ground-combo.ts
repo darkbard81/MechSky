@@ -29,7 +29,7 @@ export const MECH_GROUND_1 = {
   cancels: [{ fromFrame: 10, into: ["melee"], requiresHit: true }],
 } as const satisfies AttackDefinition;
 
-/** Second ground hit opens the K launcher only after it connects. */
+/** Second ground hit opens the X launcher only after it connects. */
 export const MECH_GROUND_2 = {
   id: "mech-ground-2",
   tags: ["melee", "ground"],

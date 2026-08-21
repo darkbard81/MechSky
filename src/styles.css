@@ -141,7 +141,7 @@ button {
 
 .boot-overlay {
   position: absolute;
-  z-index: 3;
+  z-index: 7;
   inset: 0;
   display: grid;
   place-items: center;
@@ -249,7 +249,7 @@ button {
 .battle-hud {
   position: absolute;
   z-index: 4;
-  top: 1rem;
+  top: 6.4rem;
   left: 1rem;
   display: flex;
   align-items: center;
@@ -263,6 +263,194 @@ button {
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   pointer-events: none;
+}
+
+.combat-hud {
+  position: absolute;
+  z-index: 4;
+  top: 1rem;
+  right: 1rem;
+  left: 1rem;
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) minmax(8rem, 0.55fr) minmax(11rem, 1fr);
+  align-items: start;
+  gap: 0.8rem;
+  color: #9bbbc1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.fighter-status,
+.combat-center-status {
+  border: 1px solid rgb(136 212 218 / 24%);
+  border-radius: 0.28rem;
+  padding: 0.55rem 0.65rem;
+  background: rgb(2 9 13 / 84%);
+  box-shadow: 0 0.8rem 2.2rem rgb(0 0 0 / 24%);
+}
+
+.fighter-status-row,
+.boost-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.fighter-status-row strong {
+  color: #d9fbfa;
+}
+
+.enemy-status {
+  border-color: rgb(255 139 104 / 32%);
+}
+
+.enemy-status .fighter-status-row strong {
+  color: #ffc0a8;
+}
+
+.combat-health-track,
+.boost-track {
+  height: 0.38rem;
+  margin-top: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(125 184 192 / 14%);
+}
+
+.combat-health-bar,
+.boost-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(1);
+  transform-origin: left;
+  transition: transform 90ms linear;
+}
+
+.player-health-bar {
+  background: linear-gradient(90deg, #3aa6b2, #8ff9f5);
+  box-shadow: 0 0 0.7rem rgb(101 215 220 / 65%);
+}
+
+.enemy-health-bar {
+  background: linear-gradient(90deg, #ff735c, #ffc36b);
+  box-shadow: 0 0 0.7rem rgb(255 115 92 / 55%);
+}
+
+.combat-center-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.55rem;
+  text-align: center;
+}
+
+#combo-counter,
+#lock-status {
+  color: #78979d;
+  white-space: nowrap;
+}
+
+#combo-counter[data-active="true"] {
+  color: #ffe08a;
+  text-shadow: 0 0 0.6rem rgb(255 209 102 / 55%);
+}
+
+#lock-status[data-locked="true"] {
+  color: #ffb099;
+}
+
+.boost-status-row,
+.boost-track {
+  grid-column: 1 / -1;
+}
+
+.boost-status-row strong {
+  color: #8ff9f5;
+  font-weight: 560;
+}
+
+.boost-bar {
+  background: linear-gradient(90deg, #377b92, #74f2e8);
+}
+
+.flow-overlay {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(2 8 12 / 56%);
+  backdrop-filter: blur(0.18rem);
+}
+
+.flow-overlay[hidden] {
+  display: none;
+}
+
+.flow-card {
+  width: min(29rem, 88%);
+  border: 1px solid rgb(101 215 220 / 42%);
+  border-radius: 0.35rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgb(5 18 24 / 94%);
+  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 55%);
+}
+
+.flow-kicker,
+.flow-card h2,
+.flow-message {
+  margin: 0;
+}
+
+.flow-kicker {
+  color: #65d7dc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+}
+
+.flow-card h2 {
+  margin-top: 0.55rem;
+  color: #effbff;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+
+.flow-message {
+  margin-top: 0.8rem;
+  color: #98b8be;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.flow-prompt {
+  display: inline-block;
+  margin-top: 1.2rem;
+  border: 1px solid rgb(101 215 220 / 34%);
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  color: #bdf7f4;
+  background: rgb(17 71 79 / 55%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.flow-overlay[data-phase="victory"] .flow-card {
+  border-color: rgb(101 215 220 / 70%);
+}
+
+.flow-overlay[data-phase="defeat"] .flow-card {
+  border-color: rgb(255 115 92 / 70%);
+}
+
+.flow-overlay[data-phase="defeat"] .flow-kicker,
+.flow-overlay[data-phase="defeat"] .flow-prompt {
+  color: #ffb099;
 }
 
 .battle-hud strong {
@@ -447,6 +635,14 @@ kbd {
     min-height: 24rem;
   }
 
+  .combat-hud {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .combat-center-status {
+    display: none;
+  }
+
 }
 
 @media (max-width: 620px) {
@@ -466,25 +662,4 @@ kbd {
   *::after {
     scroll-behavior: auto !important;
   }
-}
-
-.health-track {
-  grid-column: 1 / -1;
-  height: 6px;
-  border: 1px solid rgba(120, 200, 210, 0.35);
-  background: rgba(6, 18, 24, 0.75);
-  overflow: hidden;
-}
-
-.health-bar {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ff7a5c, #ffc36b);
-  transform-origin: left center;
-  transform: scaleX(1);
-  transition: transform 90ms linear;
-}
-
-#combo-counter[data-active="true"] {
-  color: #ffd166;
 }

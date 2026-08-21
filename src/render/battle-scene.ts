@@ -227,6 +227,24 @@ export class BattleScene {
     return this.debug.isEnabled(layer);
   }
 
+  reset(snapshot: SimulationSnapshot): void {
+    this.afterimageCursor = 0;
+    this.afterimageAccumulator = 0;
+    this.lastDashSequence = snapshot.player.dashSequence;
+    for (const afterimage of this.afterimages) {
+      afterimage.ageSeconds = AFTERIMAGE_LIFETIME_SECONDS;
+      afterimage.sprite.visible = false;
+      afterimage.sprite.alpha = 0;
+    }
+    this.boostTrail.visible = false;
+    this.impacts.reset();
+    this.shake.reset();
+    this.camera.reset(resolveBattleCameraTarget(snapshot));
+    this.playerView.reset(snapshot.player, snapshot.tick);
+    this.enemyView.reset(snapshot.enemy, snapshot.tick);
+    this.present(snapshot, 0);
+  }
+
   /** Consumes simulation events. The scene never reads combat state directly. */
   consume(events: readonly SimEvent[]): void {
     for (const event of events) {

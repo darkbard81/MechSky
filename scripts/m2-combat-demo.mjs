@@ -92,7 +92,7 @@ const KEY_DATA = {
   Numpad4: { key: "4", windowsVirtualKeyCode: 100, isKeypad: true },
   Numpad6: { key: "6", windowsVirtualKeyCode: 102, isKeypad: true },
   F2: { key: "F2", windowsVirtualKeyCode: 113 },
-  KeyJ: { key: "j", windowsVirtualKeyCode: 74 },
+  KeyZ: { key: "z", windowsVirtualKeyCode: 90 },
   ShiftLeft: { key: "Shift", windowsVirtualKeyCode: 16 },
   Tab: { key: "Tab", windowsVirtualKeyCode: 9 },
 };
@@ -230,7 +230,7 @@ async function main() {
     await note("start");
 
     // 1. Whiff from spawn distance: the swing plays and connects with nothing.
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(90);
     await note("whiff-during-swing");
     await pause(700);
@@ -244,16 +244,16 @@ async function main() {
     await note("approached-and-locked");
 
     // 3. Single hit, then idle long enough for the combo counter to reset.
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(140);
     await note("hit-1-mid-swing");
     await pause(1_500);
     await note("after-single-hit");
 
     // 4. Two-hit combo: follow-up inside the cancel window.
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(210);
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(250);
     await note("combo-second-swing");
     await pause(900);
@@ -262,11 +262,11 @@ async function main() {
     // 5. A follow-up pressed after the cancel window closed cannot chain: the
     //    next swing restarts at hit one. (The too-early case needs frame-exact
     //    timing, so it is covered by the unit tests instead.)
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(140);
     await note("late-first-swing");
     await pause(950);
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(140);
     await note("late-second-swing");
     await pause(950);
@@ -275,9 +275,9 @@ async function main() {
     // 6. Hitbox overlay on, one more combo so judgement can be compared.
     await tap("F2");
     await pause(200);
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(210);
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(300);
     await note("combo-with-hitbox-overlay");
     await pause(900);
@@ -318,7 +318,7 @@ async function main() {
     });
 
     await pause(120);
-    await tap("KeyJ");
+    await tap("KeyZ");
     await pause(900);
     await client.send("Page.stopScreencast");
 

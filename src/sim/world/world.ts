@@ -1,4 +1,5 @@
 import type { ActiveHitbox, AttackLibrary } from "../combat/attack-definition";
+import { validateEnemyAiRecipe } from "../ai/enemy-ai";
 import { attackDuration } from "../combat/attack-definition";
 import {
   advanceAction,
@@ -39,6 +40,8 @@ import type { SimEvent } from "./sim-event";
 export const SIMULATION_HZ = 60;
 const STEP_SECONDS = 1 / SIMULATION_HZ;
 
+export type BattleOutcome = "ongoing" | "victory" | "defeat";
+
 export interface BodySnapshot {
   readonly position: Readonly<WorldPosition>;
   readonly velocity: Readonly<Vector2>;
@@ -64,6 +67,8 @@ export interface FighterSnapshot {
   readonly comboHits: number;
   readonly maximumSpeed: number;
   readonly dashSpeed: number;
+  readonly dashDurationTicks: number;
+  readonly dashCooldownDurationTicks: number;
   readonly dashCooldownTicks: number;
   readonly dashSequence: number;
   readonly lockedTargetId: EntityId | null;
@@ -76,6 +81,8 @@ export interface FighterSnapshot {
 export interface SimulationSnapshot {
   readonly tick: number;
   readonly elapsedSeconds: number;
+  readonly battleOutcome: BattleOutcome;
+  readonly inputLocked: boolean;
   readonly arena: {
     readonly center: Readonly<Vector2>;
     readonly radius: number;
@@ -148,6 +155,12 @@ function validateFighterRecipe(recipe: FighterRecipe, label: string, arenaRadius
 }
 
 function validateRecipe(recipe: BattleRecipe): void {
+  if (!Number.isInteger(recipe.seed) || recipe.seed < 1 || recipe.seed > 0xffff_ffff) {
+    throw new RangeError("Battle seed must be an unsigned non-zero 32-bit integer.");
+  }
+
+  validateEnemyAiRecipe(recipe.enemyAi);
+
   if (!Number.isFinite(recipe.arena.center.x) || !Number.isFinite(recipe.arena.center.y)) {
     throw new RangeError("Arena center must use finite coordinates.");
   }
@@ -238,12 +251,14 @@ function copyFighterRecipe(recipe: FighterRecipe): FighterRecipe {
 
 function copyRecipe(recipe: BattleRecipe): BattleRecipe {
   return {
+    seed: recipe.seed,
     arena: {
       center: { ...recipe.arena.center },
       radius: recipe.arena.radius,
     },
     player: copyFighterRecipe(recipe.player),
     enemy: copyFighterRecipe(recipe.enemy),
+    enemyAi: { ...recipe.enemyAi },
     combat: { ...recipe.combat },
   };
 }
@@ -374,6 +389,8 @@ export class SimulationWorld {
   private readonly hits = new HitResolver();
   private events: SimEvent[] = [];
   private tick = 0;
+  private battleOutcome: BattleOutcome = "ongoing";
+  private battleEnding: Exclude<BattleOutcome, "ongoing"> | null = null;
   private previousSnapshot: SimulationSnapshot;
   private currentSnapshot: SimulationSnapshot;
 
@@ -394,22 +411,47 @@ export class SimulationWorld {
   }
 
   step(intents: readonly CommandIntent[] = []): void {
+    if (this.battleOutcome !== "ongoing") {
+      return;
+    }
+
     this.previousSnapshot = this.currentSnapshot;
 
     const tick = this.tick + 1;
-    const commands = reduceCommands(intents, this.player.id);
+    const activeIntents = this.battleEnding === null ? intents : [];
+    const playerCommands = reduceCommands(activeIntents, this.player.id);
+    const enemyCommands = reduceCommands(activeIntents, this.enemy.id);
 
     this.updateDownedFighters();
-    this.updateAttackBuffer(commands);
-    this.updateLock(commands);
-    this.startBufferedAttack();
-    this.updateMovement(commands, tick);
+    this.updateAttackBuffer(this.player, playerCommands);
+    this.updateAttackBuffer(this.enemy, enemyCommands);
+    this.updateLock(this.player, this.enemy, playerCommands);
+    this.updateLock(this.enemy, this.player, enemyCommands);
+    this.applyCommandFacing(this.player, playerCommands);
+    this.applyCommandFacing(this.enemy, enemyCommands);
+    this.startBufferedAttack(this.player, this.enemy);
+    this.startBufferedAttack(this.enemy, this.player);
+    this.updateMovement(this.player, this.enemy, playerCommands, tick);
+    this.updateMovement(this.enemy, this.player, enemyCommands, tick);
     this.moveFighters();
     this.resolveHits();
     this.advanceActions();
-    this.updateCombo();
+    this.updateCombo(this.player);
+    this.updateCombo(this.enemy);
 
     this.tick = tick;
+    this.battleEnding ??=
+      this.player.health === 0
+        ? "defeat"
+        : this.enemy.health === 0
+          ? "victory"
+          : null;
+    if (
+      (this.battleEnding === "victory" && this.enemy.locomotion === "downed") ||
+      (this.battleEnding === "defeat" && this.player.locomotion === "downed")
+    ) {
+      this.battleOutcome = this.battleEnding;
+    }
     this.currentSnapshot = this.createSnapshot(tick);
   }
 
@@ -427,246 +469,253 @@ export class SimulationWorld {
     return drained;
   }
 
-  private updateAttackBuffer(commands: TickCommands): void {
+  private updateAttackBuffer(fighter: Fighter, commands: TickCommands): void {
     if (commands.attackSlot !== null) {
-      this.player.attackBufferFrames = this.recipe.combat.inputBufferFrames;
-      this.player.bufferedAttackSlot = commands.attackSlot;
+      fighter.attackBufferFrames = this.recipe.combat.inputBufferFrames;
+      fighter.bufferedAttackSlot = commands.attackSlot;
       return;
     }
 
-    if (this.player.attackBufferFrames > 0) {
-      this.player.attackBufferFrames -= 1;
-      if (this.player.attackBufferFrames === 0) {
-        this.player.bufferedAttackSlot = null;
+    if (fighter.attackBufferFrames > 0) {
+      fighter.attackBufferFrames -= 1;
+      if (fighter.attackBufferFrames === 0) {
+        fighter.bufferedAttackSlot = null;
       }
     }
   }
 
-  private updateLock(commands: TickCommands): void {
+  private updateLock(
+    fighter: Fighter,
+    target: Fighter,
+    commands: TickCommands,
+  ): void {
     if (!commands.lockRequested) {
       return;
     }
 
-    this.player.lockedTargetId =
-      this.player.lockedTargetId === null ? this.enemy.id : null;
+    fighter.lockedTargetId = fighter.lockedTargetId === null ? target.id : null;
   }
 
-  private startBufferedAttack(): void {
-    const start = resolveAttackStart(this.player, this.library);
+  private applyCommandFacing(fighter: Fighter, commands: TickCommands): void {
+    if (
+      fighter.action.kind !== "none" ||
+      fighter.locomotion !== "grounded" ||
+      vectorLength(commands.move) <= Number.EPSILON
+    ) {
+      return;
+    }
+
+    fighter.facing = normalizeOrZero(commands.move);
+  }
+
+  private startBufferedAttack(fighter: Fighter, target: Fighter): void {
+    const start = resolveAttackStart(fighter, this.library);
 
     if (start === null) {
       return;
     }
 
     const definition = requireAttack(this.library, start.attackId);
-    beginAttack(this.player, start);
+    beginAttack(fighter, start);
 
-    this.player.homingTargetId = null;
-    this.player.homingEndExclusiveTick = 0;
+    fighter.homingTargetId = null;
+    fighter.homingEndExclusiveTick = 0;
 
-    if (this.player.lockedTargetId === this.enemy.id) {
+    if (fighter.lockedTargetId === target.id) {
       const toTarget = normalizeOrZero({
-        x: this.enemy.body.position.x - this.player.body.position.x,
-        y: this.enemy.body.position.y - this.player.body.position.y,
+        x: target.body.position.x - fighter.body.position.x,
+        y: target.body.position.y - fighter.body.position.y,
       });
       if (toTarget.x !== 0 || toTarget.y !== 0) {
-        this.player.facing = toTarget;
+        fighter.facing = toTarget;
       }
     }
 
-    this.player.body.velocity.x = this.player.facing.x * definition.forwardImpulse;
-    this.player.body.velocity.y = this.player.facing.y * definition.forwardImpulse;
+    fighter.body.velocity.x = fighter.facing.x * definition.forwardImpulse;
+    fighter.body.velocity.y = fighter.facing.y * definition.forwardImpulse;
     if (definition.selfVerticalVelocity !== 0) {
-      this.player.body.verticalVelocity = definition.selfVerticalVelocity;
-      this.player.locomotion = "airborne";
+      fighter.body.verticalVelocity = definition.selfVerticalVelocity;
+      fighter.locomotion = "airborne";
     }
 
     this.events.push({
       type: "attack-started",
       attackId: definition.id,
-      attackerId: this.player.id,
+      attackerId: fighter.id,
       chainIndex: start.chainIndex,
     });
   }
 
-  private updateMovement(commands: TickCommands, tick: number): void {
-    this.updateEnemyMovement();
-
-    if (this.player.locomotion === "downed") {
-      this.player.state = "downed";
+  private updateMovement(
+    fighter: Fighter,
+    target: Fighter,
+    commands: TickCommands,
+    tick: number,
+  ): void {
+    if (fighter.locomotion === "downed") {
+      fighter.state = "downed";
       return;
     }
 
-    if (this.player.hitStopFrames > 0) {
+    if (fighter.hitStopFrames > 0) {
       return;
     }
 
-    if (commands.dashRequested && tick >= this.player.dashReadyTick) {
-      if (this.canStartHomingChase()) {
-        this.beginHomingChase(tick);
+    if (commands.dashRequested && tick >= fighter.dashReadyTick) {
+      if (this.canStartHomingChase(fighter, target)) {
+        this.beginHomingChase(fighter, target, tick);
       } else if (
-        this.player.action.kind === "none" &&
-        this.player.locomotion === "grounded"
+        fighter.action.kind === "none" &&
+        fighter.locomotion === "grounded"
       ) {
-        this.beginGroundDash(commands.move, tick);
+        this.beginGroundDash(fighter, commands.move, tick);
       }
     }
 
-    if (this.player.homingTargetId !== null) {
-      if (tick < this.player.homingEndExclusiveTick) {
-        this.updateHomingChase();
+    if (fighter.homingTargetId !== null) {
+      if (tick < fighter.homingEndExclusiveTick) {
+        this.updateHomingChase(fighter, target);
         return;
       }
-      this.player.homingTargetId = null;
+      fighter.homingTargetId = null;
     }
 
-    if (this.player.action.kind === "hitstun") {
-      decelerate(this.player, this.recipe.combat.hitstunFriction);
+    if (fighter.action.kind === "hitstun") {
+      decelerate(fighter, this.recipe.combat.hitstunFriction);
       return;
     }
 
-    if (this.player.action.kind === "attack") {
-      decelerate(this.player, this.player.movement.deceleration);
+    if (fighter.action.kind === "attack") {
+      decelerate(fighter, fighter.movement.deceleration);
       return;
     }
 
     const moveMagnitude = vectorLength(commands.move);
     const hasMoveInput = moveMagnitude > Number.EPSILON;
 
-    if (tick < this.player.dashEndExclusiveTick) {
-      this.player.facing = { ...this.player.dashDirection };
-      this.player.body.velocity.x = this.player.dashDirection.x * this.player.movement.dashSpeed;
-      this.player.body.velocity.y = this.player.dashDirection.y * this.player.movement.dashSpeed;
-      this.player.state = "dashing";
+    if (tick < fighter.dashEndExclusiveTick) {
+      fighter.facing = { ...fighter.dashDirection };
+      fighter.body.velocity.x = fighter.dashDirection.x * fighter.movement.dashSpeed;
+      fighter.body.velocity.y = fighter.dashDirection.y * fighter.movement.dashSpeed;
+      fighter.state = "dashing";
       return;
     }
 
-    if (this.player.locomotion === "airborne") {
-      decelerate(this.player, this.player.movement.deceleration);
-      this.player.state = "idle";
+    if (fighter.locomotion === "airborne") {
+      decelerate(fighter, fighter.movement.deceleration);
+      fighter.state = "idle";
       return;
     }
 
     if (hasMoveInput) {
-      this.player.facing = normalizeOrZero(commands.move);
+      fighter.facing = normalizeOrZero(commands.move);
     }
 
     const targetVelocity = {
-      x: commands.move.x * this.player.movement.maximumSpeed,
-      y: commands.move.y * this.player.movement.maximumSpeed,
+      x: commands.move.x * fighter.movement.maximumSpeed,
+      y: commands.move.y * fighter.movement.maximumSpeed,
     };
     const rate = hasMoveInput
-      ? this.player.movement.acceleration
-      : this.player.movement.deceleration;
+      ? fighter.movement.acceleration
+      : fighter.movement.deceleration;
     const velocity = moveVectorToward(
-      this.player.body.velocity,
+      fighter.body.velocity,
       targetVelocity,
       rate * STEP_SECONDS,
     );
-    this.player.body.velocity.x = velocity.x;
-    this.player.body.velocity.y = velocity.y;
-    this.player.state = vectorLength(velocity) > 0.01 ? "moving" : "idle";
+    fighter.body.velocity.x = velocity.x;
+    fighter.body.velocity.y = velocity.y;
+    fighter.state = vectorLength(velocity) > 0.01 ? "moving" : "idle";
   }
 
-  private updateEnemyMovement(): void {
-    if (this.enemy.hitStopFrames > 0) {
-      return;
-    }
-
-    if (this.enemy.locomotion === "downed") {
-      this.enemy.body.velocity.x = 0;
-      this.enemy.body.velocity.y = 0;
-      this.enemy.state = "downed";
-      return;
-    }
-
-    const rate =
-      this.enemy.action.kind === "hitstun"
-        ? this.recipe.combat.hitstunFriction
-        : this.enemy.movement.deceleration;
-    decelerate(this.enemy, rate);
-  }
-
-  private beginGroundDash(move: Readonly<Vector2>, tick: number): void {
+  private beginGroundDash(
+    fighter: Fighter,
+    move: Readonly<Vector2>,
+    tick: number,
+  ): void {
     const hasMoveInput = vectorLength(move) > Number.EPSILON;
-    this.player.dashDirection = hasMoveInput
+    fighter.dashDirection = hasMoveInput
       ? normalizeOrZero(move)
-      : { ...this.player.facing };
-    this.player.dashEndExclusiveTick = tick + this.player.movement.dashDurationTicks;
-    this.player.dashReadyTick = tick + this.player.movement.dashCooldownTicks;
-    this.player.dashSequence += 1;
+      : { ...fighter.facing };
+    fighter.dashEndExclusiveTick = tick + fighter.movement.dashDurationTicks;
+    fighter.dashReadyTick = tick + fighter.movement.dashCooldownTicks;
+    fighter.dashSequence += 1;
   }
 
-  private canStartHomingChase(): boolean {
+  private canStartHomingChase(fighter: Fighter, target: Fighter): boolean {
     if (
-      this.enemy.locomotion !== "airborne" ||
-      this.enemy.health === 0 ||
-      this.player.action.kind === "hitstun"
+      target.locomotion !== "airborne" ||
+      target.health === 0 ||
+      fighter.action.kind === "hitstun"
     ) {
       return false;
     }
 
-    if (this.player.action.kind === "none") {
+    if (fighter.action.kind === "none") {
       return true;
     }
 
-    if (this.player.action.attackId === null) {
+    if (fighter.action.attackId === null) {
       return false;
     }
 
-    const definition = requireAttack(this.library, this.player.action.attackId);
+    const definition = requireAttack(this.library, fighter.action.attackId);
     return cancelTagsAt(
       definition,
-      this.player.action.frame,
-      this.player.action.hasConnected,
+      fighter.action.frame,
+      fighter.action.hasConnected,
     ).includes("dash");
   }
 
-  private beginHomingChase(tick: number): void {
-    if (this.player.action.kind === "attack") {
-      clearAction(this.player);
+  private beginHomingChase(
+    fighter: Fighter,
+    target: Fighter,
+    tick: number,
+  ): void {
+    if (fighter.action.kind === "attack") {
+      clearAction(fighter);
     }
 
-    this.player.lockedTargetId = this.enemy.id;
-    this.player.homingTargetId = this.enemy.id;
-    this.player.homingEndExclusiveTick = tick + this.recipe.combat.homingDurationTicks;
-    this.player.dashEndExclusiveTick = 0;
-    this.player.dashReadyTick = tick + this.player.movement.dashCooldownTicks;
-    this.player.dashSequence += 1;
-    this.player.locomotion = "airborne";
-    this.player.state = "dashing";
-    this.updateHomingChase();
+    fighter.lockedTargetId = target.id;
+    fighter.homingTargetId = target.id;
+    fighter.homingEndExclusiveTick = tick + this.recipe.combat.homingDurationTicks;
+    fighter.dashEndExclusiveTick = 0;
+    fighter.dashReadyTick = tick + fighter.movement.dashCooldownTicks;
+    fighter.dashSequence += 1;
+    fighter.locomotion = "airborne";
+    fighter.state = "dashing";
+    this.updateHomingChase(fighter, target);
 
     this.events.push({
       type: "homing-started",
-      fighterId: this.player.id,
-      targetId: this.enemy.id,
+      fighterId: fighter.id,
+      targetId: target.id,
     });
   }
 
-  private updateHomingChase(): void {
+  private updateHomingChase(fighter: Fighter, target: Fighter): void {
     const toTarget = {
-      x: this.enemy.body.position.x - this.player.body.position.x,
-      y: this.enemy.body.position.y - this.player.body.position.y,
+      x: target.body.position.x - fighter.body.position.x,
+      y: target.body.position.y - fighter.body.position.y,
     };
     const direction = normalizeOrZero(toTarget);
     const distance = vectorLength(toTarget);
     const planarSpeed = distance > 92 ? this.recipe.combat.homingSpeed : 0;
 
     if (direction.x !== 0 || direction.y !== 0) {
-      this.player.facing = direction;
+      fighter.facing = direction;
     }
-    this.player.body.velocity.x = direction.x * planarSpeed;
-    this.player.body.velocity.y = direction.y * planarSpeed;
+    fighter.body.velocity.x = direction.x * planarSpeed;
+    fighter.body.velocity.y = direction.y * planarSpeed;
 
     const elevationError =
-      this.enemy.body.position.elevation + this.enemy.body.bodyHeight * 0.12 -
-      this.player.body.position.elevation;
-    this.player.body.verticalVelocity = Math.min(
+      target.body.position.elevation + target.body.bodyHeight * 0.12 -
+      fighter.body.position.elevation;
+    fighter.body.verticalVelocity = Math.min(
       this.recipe.combat.homingVerticalSpeed,
       Math.max(-this.recipe.combat.homingVerticalSpeed, elevationError * 10),
     );
-    this.player.state = "dashing";
+    fighter.state = "dashing";
   }
 
   private moveFighters(): void {
@@ -678,9 +727,9 @@ export class SimulationWorld {
       integrateBody(fighter.body);
       this.integrateElevation(fighter);
 
-      if (constrainToArena(fighter.body, this.recipe) && fighter === this.player) {
-        this.player.dashEndExclusiveTick = Math.min(
-          this.player.dashEndExclusiveTick,
+      if (constrainToArena(fighter.body, this.recipe)) {
+        fighter.dashEndExclusiveTick = Math.min(
+          fighter.dashEndExclusiveTick,
           this.tick + 2,
         );
       }
@@ -768,8 +817,17 @@ export class SimulationWorld {
   }
 
   private resolveHits(): void {
-    const hitbox = currentHitbox(this.player, this.library);
-    const resolution = this.hits.resolve(this.player, hitbox, [this.enemy], this.library);
+    this.resolveFighterHit(this.player, this.enemy);
+    this.resolveFighterHit(this.enemy, this.player);
+  }
+
+  private resolveFighterHit(attacker: Fighter, target: Fighter): void {
+    if (attacker.health === 0) {
+      return;
+    }
+
+    const hitbox = currentHitbox(attacker, this.library);
+    const resolution = this.hits.resolve(attacker, hitbox, [target], this.library);
 
     for (const event of resolution.events) {
       this.events.push(event);
@@ -801,21 +859,21 @@ export class SimulationWorld {
     }
   }
 
-  private updateCombo(): void {
-    if (this.player.comboHits === 0) {
+  private updateCombo(fighter: Fighter): void {
+    if (fighter.comboHits === 0) {
       return;
     }
 
-    this.player.comboResetFrames += 1;
+    fighter.comboResetFrames += 1;
 
-    if (this.player.comboResetFrames >= this.recipe.combat.comboResetFrames) {
+    if (fighter.comboResetFrames >= this.recipe.combat.comboResetFrames) {
       this.events.push({
         type: "combo-ended",
-        attackerId: this.player.id,
-        hits: this.player.comboHits,
+        attackerId: fighter.id,
+        hits: fighter.comboHits,
       });
-      this.player.comboHits = 0;
-      this.player.comboResetFrames = 0;
+      fighter.comboHits = 0;
+      fighter.comboResetFrames = 0;
     }
   }
 
@@ -849,6 +907,8 @@ export class SimulationWorld {
       comboHits: fighter.comboHits,
       maximumSpeed: fighter.movement.maximumSpeed,
       dashSpeed: fighter.movement.dashSpeed,
+      dashDurationTicks: fighter.movement.dashDurationTicks,
+      dashCooldownDurationTicks: fighter.movement.dashCooldownTicks,
       dashCooldownTicks: Math.max(0, fighter.dashReadyTick - tick),
       dashSequence: fighter.dashSequence,
       lockedTargetId: fighter.lockedTargetId,
@@ -860,18 +920,28 @@ export class SimulationWorld {
   }
 
   private createSnapshot(tick: number): SimulationSnapshot {
-    const hitbox = currentHitbox(this.player, this.library);
+    const playerHitbox = currentHitbox(this.player, this.library);
+    const enemyHitbox = currentHitbox(this.enemy, this.library);
+    const hitboxes: ActiveHitbox[] = [];
+    if (playerHitbox !== null) {
+      hitboxes.push(Object.freeze({ ...playerHitbox }));
+    }
+    if (enemyHitbox !== null) {
+      hitboxes.push(Object.freeze({ ...enemyHitbox }));
+    }
 
     return freezeSnapshot({
       tick,
       elapsedSeconds: tick / SIMULATION_HZ,
+      battleOutcome: this.battleOutcome,
+      inputLocked: this.battleEnding !== null,
       arena: {
         center: { ...this.recipe.arena.center },
         radius: this.recipe.arena.radius,
       },
       player: this.snapshotFighter(this.player, tick),
       enemy: this.snapshotFighter(this.enemy, tick),
-      hitboxes: hitbox === null ? [] : [Object.freeze({ ...hitbox })],
+      hitboxes,
     });
   }
 }

@@ -1,9 +1,6 @@
 import type { FighterRecipe } from "../../sim/world/battle-recipe";
+import { ENEMY_MECH_STRIKE_CHAIN_ID } from "../attacks/enemy-mech-strike";
 
-/**
- * Vertical-slice training target: it can be launched, juggled, knocked down,
- * and wake up, but it does not act. Enemy AI arrives in M5.
- */
 export const ENEMY_MECH_ID = 2;
 
 export const ENEMY_MECH = {
@@ -13,15 +10,15 @@ export const ENEMY_MECH = {
   bodyHeight: 112,
   health: 900,
   attackChains: {
-    grounded: [null, null],
+    grounded: [ENEMY_MECH_STRIKE_CHAIN_ID, null],
     airborne: [null, null],
   },
   movement: {
     acceleration: 900,
     deceleration: 1_500,
-    maximumSpeed: 0.001,
-    dashSpeed: 0.002,
-    dashDurationTicks: 1,
-    dashCooldownTicks: 1,
+    maximumSpeed: 205,
+    dashSpeed: 520,
+    dashDurationTicks: 8,
+    dashCooldownTicks: 72,
   },
 } as const satisfies FighterRecipe;

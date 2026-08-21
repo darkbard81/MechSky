@@ -38,4 +38,9 @@ export class CameraShake {
   get intensity(): number {
     return this.trauma;
   }
+
+  reset(): void {
+    this.trauma = 0;
+    this.elapsedSeconds = 0;
+  }
 }

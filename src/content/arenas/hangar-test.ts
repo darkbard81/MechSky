@@ -7,9 +7,10 @@ import { ENEMY_MECH, ENEMY_MECH_ID } from "../actors/enemy-mech";
 import type { BattleRecipe } from "../../sim/world/battle-recipe";
 
 export const PLAYER_FIGHTER_ID = 1;
-export const TRAINING_TARGET_ID = ENEMY_MECH_ID;
+export const ENEMY_FIGHTER_ID = ENEMY_MECH_ID;
 
 export const HANGAR_TEST_BATTLE: BattleRecipe = Object.freeze({
+  seed: 0x4d_35_41_49,
   arena: {
     center: { x: 0, y: 0 },
     radius: 380,
@@ -34,6 +35,18 @@ export const HANGAR_TEST_BATTLE: BattleRecipe = Object.freeze({
     },
   },
   enemy: ENEMY_MECH,
+  enemyAi: {
+    reactionDelayFrames: 14,
+    hitRecoveryFrames: 24,
+    attackCooldownFrames: 78,
+    evadeCooldownFrames: 180,
+    evadeDurationFrames: 8,
+    minimumRange: 92,
+    preferredRange: 116,
+    maximumRange: 136,
+    evadeTriggerRange: 178,
+    aimErrorRadians: 0.08,
+  },
   combat: {
     library: MECH_ATTACK_LIBRARY,
     inputBufferFrames: 9,

@@ -42,10 +42,12 @@ const NUMPAD_FALLBACK_BY_KEY: Readonly<Record<string, string>> = Object.freeze({
 
 const DASH_CODES = new Set(["ShiftLeft", "ShiftRight"]);
 const ATTACK_SLOT_BY_CODE: Readonly<Record<string, number>> = Object.freeze({
-  KeyJ: 0,
-  KeyK: 1,
+  KeyZ: 0,
+  KeyX: 1,
 });
 const LOCK_CODE = "Tab";
+const CONFIRM_CODES = new Set(["Enter", "KeyZ"]);
+const PAUSE_CODE = "Escape";
 
 export function attackSlotForCode(code: string): number | null {
   return ATTACK_SLOT_BY_CODE[code] ?? null;
@@ -59,12 +61,24 @@ export interface InputStatus {
   readonly control: InputControl;
 }
 
+export interface FlowInput {
+  readonly confirm: boolean;
+  readonly pause: boolean;
+}
+
+export interface PlayerInputFrame {
+  readonly intents: readonly CommandIntent[];
+  readonly flow: FlowInput;
+}
+
 export function resolveKeyboardCode(event: Pick<KeyboardEvent, "code" | "key" | "location">): string {
   if (
     event.code in DIRECTION_BY_CODE ||
     DASH_CODES.has(event.code) ||
     attackSlotForCode(event.code) !== null ||
-    event.code === LOCK_CODE
+    event.code === LOCK_CODE ||
+    CONFIRM_CODES.has(event.code) ||
+    event.code === PAUSE_CODE
   ) {
     return event.code;
   }
@@ -142,10 +156,14 @@ export class PlayerInputController {
   private attackQueuedSlot: number | null = null;
   private dashQueued = false;
   private lockQueued = false;
+  private confirmQueued = false;
+  private pauseQueued = false;
   private previousAttackButton = false;
   private previousSpecialButton = false;
   private previousDashButton = false;
   private previousLockButton = false;
+  private previousPauseButton = false;
+  private gamepadConnected = false;
   private status: InputStatus = { source: "keyboard", control: "WASD" };
 
   constructor(
@@ -161,7 +179,7 @@ export class PlayerInputController {
     eventDocument.addEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  sampleIntents(): readonly CommandIntent[] {
+  sampleFrame(): PlayerInputFrame {
     const keyboardMove = keyboardMoveVector(this.pressedCodes);
     const gamepadMove = this.pollGamepad();
     const move =
@@ -191,7 +209,20 @@ export class PlayerInputController {
       this.lockQueued = false;
     }
 
-    return intents;
+    const frame = {
+      intents,
+      flow: {
+        confirm: this.confirmQueued,
+        pause: this.pauseQueued,
+      },
+    } as const;
+    this.confirmQueued = false;
+    this.pauseQueued = false;
+    return frame;
+  }
+
+  sampleIntents(): readonly CommandIntent[] {
+    return this.sampleFrame().intents;
   }
 
   getStatus(): InputStatus {
@@ -209,15 +240,31 @@ export class PlayerInputController {
     this.clearHeldInput();
   }
 
+  resetBattleInput(): void {
+    this.pressedCodes.clear();
+    this.attackQueuedSlot = null;
+    this.dashQueued = false;
+    this.lockQueued = false;
+    this.confirmQueued = false;
+    this.pauseQueued = false;
+  }
+
   private pollGamepad(): Vector2 {
     const gamepad = this.readGamepads().find((candidate) => candidate?.connected);
 
     if (gamepad === undefined || gamepad === null) {
+      this.gamepadConnected = false;
       this.previousAttackButton = false;
       this.previousSpecialButton = false;
       this.previousDashButton = false;
       this.previousLockButton = false;
+      this.previousPauseButton = false;
       return { ...ZERO_VECTOR };
+    }
+
+    if (!this.gamepadConnected) {
+      this.gamepadConnected = true;
+      this.status = { source: "gamepad", control: "LEFT STICK" };
     }
 
     const move = applyGamepadDeadzone(
@@ -228,9 +275,11 @@ export class PlayerInputController {
     const specialButton = buttonPressed(gamepad, 2);
     const dashButton = buttonPressed(gamepad, 1);
     const lockButton = buttonPressed(gamepad, 4);
+    const pauseButton = buttonPressed(gamepad, 9);
 
     if (attackButton && !this.previousAttackButton) {
       this.attackQueuedSlot = 0;
+      this.confirmQueued = true;
     }
 
     if (specialButton && !this.previousSpecialButton) {
@@ -245,12 +294,17 @@ export class PlayerInputController {
       this.lockQueued = true;
     }
 
+    if (pauseButton && !this.previousPauseButton) {
+      this.pauseQueued = true;
+    }
+
     if (
       vectorLength(move) > 0 ||
       attackButton ||
       specialButton ||
       dashButton ||
-      lockButton
+      lockButton ||
+      pauseButton
     ) {
       this.status = { source: "gamepad", control: "LEFT STICK" };
     }
@@ -259,6 +313,7 @@ export class PlayerInputController {
     this.previousSpecialButton = specialButton;
     this.previousDashButton = dashButton;
     this.previousLockButton = lockButton;
+    this.previousPauseButton = pauseButton;
     return move;
   }
 
@@ -266,7 +321,11 @@ export class PlayerInputController {
     const code = resolveKeyboardCode(event);
     const isDirection = code in DIRECTION_BY_CODE;
     const isAction =
-      DASH_CODES.has(code) || attackSlotForCode(code) !== null || code === LOCK_CODE;
+      DASH_CODES.has(code) ||
+      attackSlotForCode(code) !== null ||
+      code === LOCK_CODE ||
+      CONFIRM_CODES.has(code) ||
+      code === PAUSE_CODE;
 
     if (!isDirection && !isAction) {
       return;
@@ -274,6 +333,13 @@ export class PlayerInputController {
 
     event.preventDefault();
     this.status = { source: "keyboard", control: controlForCode(code) };
+
+    if (!event.repeat && CONFIRM_CODES.has(code)) {
+      this.confirmQueued = true;
+    }
+    if (!event.repeat && code === PAUSE_CODE) {
+      this.pauseQueued = true;
+    }
 
     if (isDirection) {
       this.pressedCodes.add(code);
@@ -294,7 +360,9 @@ export class PlayerInputController {
       code in DIRECTION_BY_CODE ||
       DASH_CODES.has(code) ||
       attackSlotForCode(code) !== null ||
-      code === LOCK_CODE
+      code === LOCK_CODE ||
+      CONFIRM_CODES.has(code) ||
+      code === PAUSE_CODE
     ) {
       event.preventDefault();
     }
@@ -308,13 +376,11 @@ export class PlayerInputController {
   };
 
   private readonly clearHeldInput = (): void => {
-    this.pressedCodes.clear();
-    this.attackQueuedSlot = null;
-    this.dashQueued = false;
-    this.lockQueued = false;
+    this.resetBattleInput();
     this.previousAttackButton = false;
     this.previousSpecialButton = false;
     this.previousDashButton = false;
     this.previousLockButton = false;
+    this.previousPauseButton = false;
   };
 }

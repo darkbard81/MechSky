@@ -133,6 +133,15 @@ export class PixiBattleRenderer {
     this.battleScene?.consume(events);
   }
 
+  reset(frame: SimulationFrame): void {
+    if (!this.initialized || this.battleScene === undefined) {
+      throw new Error("Pixi renderer must be initialized before resetting the battle.");
+    }
+
+    this.battleScene.reset(frame.current);
+    this.application.render();
+  }
+
   toggleDebugLayer(layer: DebugLayerName): boolean {
     return this.battleScene?.toggleDebugLayer(layer) ?? false;
   }

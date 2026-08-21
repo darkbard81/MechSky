@@ -114,6 +114,15 @@ export class ImpactEffects {
     }
   }
 
+  reset(): void {
+    this.cursor = 0;
+    for (const effect of this.effects) {
+      effect.ageSeconds = effect.lifetimeSeconds;
+      effect.view.visible = false;
+      effect.view.alpha = 0;
+    }
+  }
+
   private spawnAt(options: {
     readonly x: number;
     readonly y: number;

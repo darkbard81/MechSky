@@ -1,4 +1,7 @@
-import { HANGAR_TEST_BATTLE, PLAYER_FIGHTER_ID } from "../content/arenas/hangar-test";
+import {
+  HANGAR_TEST_BATTLE,
+  PLAYER_FIGHTER_ID,
+} from "../content/arenas/hangar-test";
 import { CombatAudio } from "../audio/combat-audio";
 import { PlayerInputController } from "../input/player-input";
 import { debugLayerForCode } from "../render/debug/debug-overlay";
@@ -6,31 +9,24 @@ import { resolvePlatform } from "../platform/resolve-platform";
 import type { Platform } from "../platform/platform";
 import { PixiBattleRenderer } from "../render/pixi-renderer";
 import { FixedStepClock } from "../sim/world/fixed-step-clock";
-import { SIMULATION_HZ, SimulationWorld } from "../sim/world/world";
-import { DevelopmentHud } from "../ui/hud/development-hud";
+import { SIMULATION_HZ } from "../sim/world/world";
+import {
+  DevelopmentHud,
+  type DevelopmentHudElements,
+} from "../ui/hud/development-hud";
+import { BattleHud, type BattleHudElements } from "../ui/hud/battle-hud";
+import {
+  BattleFlowOverlay,
+  type BattleFlowOverlayElements,
+} from "../ui/result/battle-flow-overlay";
+import { GameFlow } from "./game-flow";
+import { BattleSession } from "./battle-session";
 
-export interface GameAppElements {
+export interface GameAppElements
+  extends DevelopmentHudElements,
+    BattleHudElements,
+    BattleFlowOverlayElements {
   readonly surface: HTMLDivElement;
-  readonly bootOverlay: HTMLElement;
-  readonly bootStatus: HTMLElement;
-  readonly loadingBar: HTMLElement;
-  readonly loadingDetail: HTMLElement;
-  readonly loadingPercent: HTMLElement;
-  readonly loadingProgress: HTMLElement;
-  readonly simTick: HTMLElement;
-  readonly simAlpha: HTMLElement;
-  readonly playerPosition: HTMLElement;
-  readonly playerVelocity: HTMLElement;
-  readonly playerState: HTMLElement;
-  readonly dashCooldown: HTMLElement;
-  readonly targetLock: HTMLElement;
-  readonly inputSource: HTMLElement;
-  readonly combatAction: HTMLElement;
-  readonly comboCounter: HTMLElement;
-  readonly enemyHealth: HTMLElement;
-  readonly enemyHealthBar: HTMLElement;
-  readonly platformKind: HTMLElement;
-  readonly runtimeMessage: HTMLElement;
   readonly fullscreenButton: HTMLButtonElement;
 }
 
@@ -41,9 +37,12 @@ export class GameApp {
   });
   private readonly renderer = new PixiBattleRenderer();
   private readonly audio = new CombatAudio();
-  private readonly simulation = new SimulationWorld(HANGAR_TEST_BATTLE);
+  private readonly session = new BattleSession(HANGAR_TEST_BATTLE);
   private readonly input = new PlayerInputController(PLAYER_FIGHTER_ID);
   private readonly hud: DevelopmentHud;
+  private readonly battleHud: BattleHud;
+  private readonly flow = new GameFlow();
+  private readonly flowOverlay: BattleFlowOverlay;
   private readonly platform: Platform;
   private animationFrameId: number | undefined;
   private previousRenderTimeMilliseconds: number | undefined;
@@ -52,6 +51,8 @@ export class GameApp {
   constructor(private readonly elements: GameAppElements) {
     this.platform = resolvePlatform();
     this.hud = new DevelopmentHud(elements);
+    this.battleHud = new BattleHud(elements);
+    this.flowOverlay = new BattleFlowOverlay(elements);
     this.elements.fullscreenButton.addEventListener("click", this.handleFullscreen);
     window.addEventListener("keydown", this.handleDebugKey);
   }
@@ -66,7 +67,7 @@ export class GameApp {
     try {
       await this.renderer.initialize(
         this.elements.surface,
-        this.simulation.getFrame(),
+        this.session.frame,
         (progress, detail) => {
           this.hud.loading(progress, detail);
         },
@@ -75,6 +76,9 @@ export class GameApp {
       this.clock.reset(performance.now());
       this.previousRenderTimeMilliseconds = undefined;
       this.hud.ready(this.platform.kind);
+      const inputStatus = this.input.getStatus();
+      this.battleHud.present(this.session.frame.current, inputStatus.source);
+      this.flowOverlay.present(this.flow.presentation(inputStatus.source));
       this.elements.surface.dataset["ready"] = "true";
       this.animationFrameId = requestAnimationFrame(this.frame);
     } catch (error: unknown) {
@@ -113,17 +117,37 @@ export class GameApp {
         : Math.max(0, nowMilliseconds - previousRenderTime) / 1_000;
     this.previousRenderTimeMilliseconds = nowMilliseconds;
 
+    let inputStatus = this.input.getStatus();
     const advance = this.clock.advance(nowMilliseconds, () => {
-      this.simulation.step(this.input.sampleIntents());
-    });
-    const simulationFrame = this.simulation.getFrame();
-    const inputStatus = this.input.getStatus();
+      const inputFrame = this.input.sampleFrame();
+      inputStatus = this.input.getStatus();
+      const phaseBeforeInput = this.flow.phase;
+      const transition = this.flow.handleInput(inputFrame.flow);
 
-    const events = this.simulation.drainEvents();
+      if (transition.retryRequested) {
+        this.resetBattle();
+        return;
+      }
+
+      if (phaseBeforeInput !== "active" || this.flow.phase !== "active") {
+        if (transition.battleStarted) {
+          this.input.resetBattleInput();
+        }
+        return;
+      }
+
+      this.session.step(inputFrame.intents);
+      this.flow.observeOutcome(this.session.frame.current.battleOutcome);
+    });
+    const simulationFrame = this.session.frame;
+
+    const events = this.session.drainEvents();
     this.renderer.consume(events);
     this.audio.consume(events);
     this.renderer.present(simulationFrame, advance.alpha, renderDeltaSeconds);
     this.renderer.render();
+    this.battleHud.present(simulationFrame.current, inputStatus.source);
+    this.flowOverlay.present(this.flow.presentation(inputStatus.source));
     this.hud.present({
       actionDuration: simulationFrame.current.player.actionDuration,
       actionFrame: simulationFrame.current.player.actionFrame,
@@ -131,10 +155,7 @@ export class GameApp {
       alpha: advance.alpha,
       attackId: simulationFrame.current.player.attackId,
       attackPhase: simulationFrame.current.player.attackPhase,
-      comboHits: simulationFrame.current.player.comboHits,
       dashCooldownTicks: simulationFrame.current.player.dashCooldownTicks,
-      enemyHealth: simulationFrame.current.enemy.health,
-      enemyMaximumHealth: simulationFrame.current.enemy.maximumHealth,
       fighterState: simulationFrame.current.player.state,
       locomotion: simulationFrame.current.player.locomotion,
       homing: simulationFrame.current.player.homingTargetId !== null,
@@ -150,6 +171,8 @@ export class GameApp {
 
     this.elements.surface.dataset["playerState"] =
       simulationFrame.current.player.state;
+    this.elements.surface.dataset["playerHealth"] =
+      simulationFrame.current.player.health.toString();
     this.elements.surface.dataset["playerX"] =
       simulationFrame.current.player.body.position.x.toFixed(2);
     this.elements.surface.dataset["playerY"] =
@@ -174,8 +197,20 @@ export class GameApp {
       simulationFrame.current.enemy.body.position.elevation.toFixed(2);
     this.elements.surface.dataset["enemyLocomotion"] =
       simulationFrame.current.enemy.locomotion;
+    this.elements.surface.dataset["enemyState"] =
+      simulationFrame.current.enemy.state;
+    this.elements.surface.dataset["enemyAttack"] =
+      simulationFrame.current.enemy.attackId ?? "none";
     this.elements.surface.dataset["comboHits"] =
       simulationFrame.current.player.comboHits.toString();
+    this.elements.surface.dataset["battleOutcome"] =
+      simulationFrame.current.battleOutcome;
+    this.elements.surface.dataset["inputLocked"] =
+      simulationFrame.current.inputLocked.toString();
+    this.elements.surface.dataset["simTick"] =
+      simulationFrame.current.tick.toString();
+    this.elements.surface.dataset["flowPhase"] = this.flow.phase;
+    this.elements.surface.dataset["enemyAi"] = this.session.enemyAiState;
 
     this.animationFrameId = requestAnimationFrame(this.frame);
   };
@@ -204,4 +239,12 @@ export class GameApp {
         );
       });
   };
+
+  private resetBattle(): void {
+    this.session.reset();
+    this.input.resetBattleInput();
+    this.flow.restartBattle();
+    this.battleHud.reset();
+    this.renderer.reset(this.session.frame);
+  }
 }

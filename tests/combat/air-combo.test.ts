@@ -86,7 +86,7 @@ function hitIds(events: readonly SimEvent[]): string[] {
 }
 
 describe("M3 launcher and air combo", () => {
-  it("executes J J K Shift J J K through launch, chase, finisher, and wake-up", () => {
+  it("executes Z Z X Shift Z Z X through launch, chase, finisher, and wake-up", () => {
     const world = new SimulationWorld(comboRecipe());
     const events: SimEvent[] = [];
 

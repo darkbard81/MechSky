@@ -1,4 +1,5 @@
 import type { AttackLibrary } from "../combat/attack-definition";
+import type { EnemyAiRecipe } from "../ai/enemy-ai";
 import type { EntityId, MovementProfile, WorldPosition } from "./entity";
 
 export interface ArenaRecipe {
@@ -37,8 +38,10 @@ export interface CombatRecipe {
 }
 
 export interface BattleRecipe {
+  readonly seed: number;
   readonly arena: ArenaRecipe;
   readonly player: FighterRecipe;
   readonly enemy: FighterRecipe;
+  readonly enemyAi: EnemyAiRecipe;
   readonly combat: CombatRecipe;
 }

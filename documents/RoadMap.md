@@ -6,7 +6,7 @@
 >
 > 작성일: 2026-08-19
 >
-> 상태: M0·M1·M2·M3·M4 완료, M5 대기
+> 상태: M0·M1·M2·M3·M4·M5 완료, M6 대기
 
 ## 1. 목표
 
@@ -62,8 +62,8 @@
 | 행동 | 키보드 | Steam Deck / Gamepad |
 |---|---|---|
 | 이동 | `WASD` / 방향키 / NumPad 8방향 | 왼쪽 스틱 |
-| 주 공격 / 콤보 진행 | `J` | `A` |
-| Launcher / 공중 Finisher | `K` | `X` |
+| 주 공격 / 콤보 진행 | `Z` | `A` |
+| Launcher / 공중 Finisher | `X` | `X` |
 | Dash / 공중 추격 | `Shift` | `B` |
 | 타깃 전환 | `Tab` | `LB` |
 | 일시 정지 | `Esc` | `Menu` |
@@ -339,8 +339,8 @@ outline을 사용한다.
 
 사용자 가시 완료 조건:
 
-- `J`를 누르면 startup 후 정해진 순간에만 타격한다.
-- 1타 적중 후 허용 구간에서 다시 `J`를 누르면 2타로 이어진다.
+- `Z`를 누르면 startup 후 정해진 순간에만 타격한다.
+- 1타 적중 후 허용 구간에서 다시 `Z`를 누르면 2타로 이어진다.
 - 너무 이르거나 늦은 입력은 규칙대로 buffer 또는 무시된다.
 - miss와 hit가 flash, spark, shake, enemy reaction으로 분명히 다르다.
 - 공격 중 debug overlay의 active hitbox가 실제 판정과 일치한다.
@@ -379,7 +379,7 @@ outline을 사용한다.
 
 사용자 가시 완료 조건:
 
-- `J → J → K → Shift → J → J → K`로 전체 콤보가 이어진다.
+- `Z → Z → X → Shift → Z → Z → X`로 전체 콤보가 이어진다.
 - 적이 실제로 지면에서 떠오르고 그림자와 분리된다.
 - 지상 공격은 충분히 높은 적을 맞히지 못한다.
 - 공중 공격은 height range가 겹칠 때만 맞는다.
@@ -401,7 +401,7 @@ outline을 사용한다.
 - [`M3 검증 기록`](./evidence/m3/README.md)
 - 사용자가 실제 실행 화면에서 M3 가시 완료 조건을 모두 확인
 
-- `J → J → K → Shift → J → J → K` 입력을 지상 2타, launcher, homing chase,
+- `Z → Z → X → Shift → Z → Z → X` 입력을 지상 2타, launcher, homing chase,
   공중 2타, finisher에 연결
 - `verticalVelocity`, gravity, 최대 낙하 속도, grounded/airborne/downed,
   ground impact, 48-tick knockdown과 wake-up을 simulation 상태로 구현
@@ -488,6 +488,21 @@ outline을 사용한다.
 
 - 승리 1회와 패배 1회 full-run clip
 - battle reset과 AI intent 단위 테스트
+
+완료 기록 (2026-08-21):
+
+- [`승리/패배 full-run, 화면과 runtime timeline`](./evidence/m5/README.md)
+- seeded AI가 동일 `CommandIntent`로 접근, 선호 사거리 유지, 단발 공격, 회피 dash,
+  hit recovery를 수행하고 양쪽 fighter가 같은 판정·피해·hit-stop 경로를 사용
+- player/enemy HP, boost, combo, lock-on DOM HUD와 intro/pause/victory/defeat/retry
+  overlay 및 keyboard/gamepad 자동 안내 전환 구현
+- 결과 확정 전부터 새 simulation 입력을 잠그되 공중 격파 target은 ground impact/downed까지
+  진행하며, retry 시 simulation/AI/event/input/Pixi transient state 전체 초기화
+- 1280×800 Chromium에서 승리 tick 503, 패배 tick 1419, pause tick 불변과 1-input
+  retry를 재현하고, 표준 Gamepad API의 A 시작/retry 및 Menu pause/resume 무마우스
+  runtime 경로와 20개 test file / 114개 test 통과
+- 사용자가 실제 실행 화면에서 Gate F 전 항목을 승인했고, 최종 요청에 따라 keyboard
+  주 공격/Launcher·Finisher를 `Z`/`X`로 변경한 뒤 full-run 증거를 다시 생성
 
 ### M6. Replay, dev scenario, 브라우저 시각 검증
 

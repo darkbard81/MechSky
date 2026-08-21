@@ -101,6 +101,11 @@ export class FighterView {
     this.flashSeconds = HIT_FLASH_SECONDS;
   }
 
+  reset(fighter: FighterSnapshot, tick: number): void {
+    this.flashSeconds = 0;
+    this.present(fighter, tick, 0);
+  }
+
   present(fighter: FighterSnapshot, tick: number, deltaSeconds: number): void {
     const { position } = fighter.body;
     const projection = projectFighter(position);

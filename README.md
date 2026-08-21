@@ -38,16 +38,39 @@ npm run build
 M3 공중 콤보는 개발 서버에서 적에게 접근한 뒤 다음 순서로 확인한다.
 
 ```text
-J → J → K → Shift → J → J → K
+Z → Z → X → Shift → Z → Z → X
 ```
 
-`K`는 지상에서 Launcher, 공중에서 Finisher이며 gamepad에서는 `X`다. `Shift`/`B`는
+키보드 `X`는 지상에서 Launcher, 공중에서 Finisher이며 gamepad에서도 `X`다. `Shift`/`B`는
 공중에 뜬 적이 있을 때 homing chase로 전환된다. CDP 입력 재현은 이미 remote debugging
 상태로 열린 Chromium에 `npm run demo:m3`를 실행한다.
 
 `npm run check`는 ESLint, renderer/Electron TypeScript 검사, simulation 단위 테스트를
 순서대로 실행한다. ESLint는 `src/sim`에서 PixiJS, Electron, DOM, render/UI import를
 금지하여 simulation 경계를 유지한다.
+
+## M5 한 판 진행
+
+자산 준비 뒤 intro 화면에서 `Enter` 또는 `Z`로 시작한다. gamepad가 연결되어 있으면
+안내가 자동으로 Steam Deck 기준으로 바뀌며 `A`로 시작한다. 적은 잠시 관찰한 뒤 접근,
+간격 유지, 단발 공격과 짧은 회피를 수행한다.
+
+- `Esc` / `Menu`: pause 또는 resume
+- 결과 화면의 `Enter` / `A`: 한 번의 입력으로 즉시 retry
+- retry 시 HP, 위치, combo, AI seed, 입력 buffer, 전투 FX가 초기화됨
+
+1280×800 Chromium CDP에서 승리 또는 패배 full-run을 재현하려면:
+
+```bash
+MECHSKY_CDP_URL=http://127.0.0.1:9226 \
+MECHSKY_M5_MODE=victory \
+npm run demo:m5
+```
+
+`MECHSKY_M5_MODE=defeat`는 입력 없이 AI의 패배 경로를 재현한다. 여기에
+`MECHSKY_M5_INPUT=gamepad`를 추가하면 표준 Gamepad API에서 A 시작/retry와 Menu
+pause/resume도 함께 검증한다. 상세 증거와 사용자 확인 항목은
+[`documents/evidence/m5/README.md`](documents/evidence/m5/README.md)에 있다.
 
 ## 주요 구조
 

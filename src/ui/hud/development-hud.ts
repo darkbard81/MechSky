@@ -25,9 +25,6 @@ export interface DevelopmentHudElements {
   readonly targetLock: HTMLElement;
   readonly inputSource: HTMLElement;
   readonly combatAction: HTMLElement;
-  readonly comboCounter: HTMLElement;
-  readonly enemyHealth: HTMLElement;
-  readonly enemyHealthBar: HTMLElement;
   readonly platformKind: HTMLElement;
   readonly runtimeMessage: HTMLElement;
 }
@@ -39,10 +36,7 @@ export interface DevelopmentHudState {
   readonly alpha: number;
   readonly attackId: string | null;
   readonly attackPhase: AttackPhase | null;
-  readonly comboHits: number;
   readonly dashCooldownTicks: number;
-  readonly enemyHealth: number;
-  readonly enemyMaximumHealth: number;
   readonly fighterState: FighterState;
   readonly locomotion: LocomotionState;
   readonly homing: boolean;
@@ -57,6 +51,7 @@ export interface DevelopmentHudState {
 }
 
 export class DevelopmentHud {
+  private lastInputLabel = "";
   private lastTick = -1;
 
   constructor(private readonly elements: DevelopmentHudElements) {}
@@ -80,7 +75,7 @@ export class DevelopmentHud {
     this.elements.platformKind.textContent =
       platform === "electron" ? "Electron" : "Browser";
     this.elements.runtimeMessage.textContent =
-      "J → J → K → Shift → J → J → K로 지상 2타, Launcher, 공중 추격, Finisher를 연결합니다.";
+      "적의 접근과 반격을 읽고 지상 2타 → Launcher → Homing → 공중 2타 → Finisher를 연결합니다.";
   }
 
   failed(message: string): void {
@@ -96,6 +91,11 @@ export class DevelopmentHud {
 
   present(state: DevelopmentHudState): void {
     this.elements.simAlpha.textContent = state.alpha.toFixed(2);
+    const inputLabel = `${state.inputSource.toUpperCase()} · ${state.inputControl}`;
+    if (inputLabel !== this.lastInputLabel) {
+      this.lastInputLabel = inputLabel;
+      this.elements.inputSource.textContent = inputLabel;
+    }
 
     if (state.tick === this.lastTick) {
       return;
@@ -112,21 +112,11 @@ export class DevelopmentHud {
         : `${(state.dashCooldownTicks / 60).toFixed(2)}s`;
     this.elements.targetLock.textContent = state.locked ? "LOCKED" : "SEARCH";
     this.elements.targetLock.dataset["locked"] = state.locked.toString();
-    this.elements.inputSource.textContent = `${state.inputSource.toUpperCase()} · ${state.inputControl}`;
     this.presentCombat(state);
   }
 
   private presentCombat(state: DevelopmentHudState): void {
     this.elements.combatAction.textContent = describeAction(state);
-    this.elements.comboCounter.textContent = state.comboHits.toString();
-    this.elements.comboCounter.dataset["active"] = (state.comboHits > 0).toString();
-    this.elements.enemyHealth.textContent = `${state.enemyHealth} / ${state.enemyMaximumHealth}`;
-
-    const ratio =
-      state.enemyMaximumHealth === 0
-        ? 0
-        : Math.min(1, Math.max(0, state.enemyHealth / state.enemyMaximumHealth));
-    this.elements.enemyHealthBar.style.transform = `scaleX(${ratio})`;
   }
 
   showMessage(message: string): void {

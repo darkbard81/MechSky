@@ -28,4 +28,10 @@ export class SmoothCamera {
   get position(): Readonly<Vector2> {
     return { ...this.current };
   }
+
+  reset(target: Readonly<Vector2>): void {
+    this.current.x = target.x;
+    this.current.y = target.y;
+    this.initialized = true;
+  }
 }

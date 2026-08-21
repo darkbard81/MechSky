@@ -76,8 +76,8 @@ async function createCdpClient(webSocketUrl) {
 const KEY_DATA = {
   KeyA: { key: "a", windowsVirtualKeyCode: 65 },
   KeyD: { key: "d", windowsVirtualKeyCode: 68 },
-  KeyJ: { key: "j", windowsVirtualKeyCode: 74 },
-  KeyK: { key: "k", windowsVirtualKeyCode: 75 },
+  KeyX: { key: "x", windowsVirtualKeyCode: 88 },
+  KeyZ: { key: "z", windowsVirtualKeyCode: 90 },
   KeyW: { key: "w", windowsVirtualKeyCode: 87 },
   Numpad2: { key: "2", windowsVirtualKeyCode: 98, isKeypad: true },
   ShiftLeft: { key: "Shift", windowsVirtualKeyCode: 16 },
@@ -233,7 +233,7 @@ async function main() {
     await pause(400);
     await approachTarget(100);
 
-    await tap("KeyJ");
+    await tap("KeyZ");
     await waitFor(
       "ground-1",
       (state) =>
@@ -242,7 +242,7 @@ async function main() {
         state.enemyHealth === 840,
     );
 
-    await tap("KeyJ");
+    await tap("KeyZ");
     await waitFor(
       "ground-2",
       (state) =>
@@ -251,7 +251,7 @@ async function main() {
         state.enemyHealth === 750,
     );
 
-    await tap("KeyK");
+    await tap("KeyX");
     await waitFor(
       "launcher",
       (state) =>
@@ -281,7 +281,7 @@ async function main() {
       );
     });
 
-    await tap("KeyJ");
+    await tap("KeyZ");
     await waitFor(
       "air-1",
       (state) =>
@@ -290,7 +290,7 @@ async function main() {
         state.enemyHealth === 625,
     );
 
-    await tap("KeyJ");
+    await tap("KeyZ");
     await waitFor(
       "air-2",
       (state) =>
@@ -300,7 +300,7 @@ async function main() {
     );
     await screenshot("air-combo.png");
 
-    await tap("KeyK");
+    await tap("KeyX");
     await waitFor(
       "finisher-hit",
       (state) => state.action === "mech-finisher" && state.enemyHealth === 420,
